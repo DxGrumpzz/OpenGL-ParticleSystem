@@ -12,6 +12,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+static std::uint32_t MouseX = 0;
+static std::uint32_t MouseY = 0;
+
+static std::uint32_t WindowWidth = 0;
+static std::uint32_t WindowHeight = 0;
+
 
 void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 {
@@ -51,19 +57,24 @@ GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight)
 
     GLFWwindow* glfwWindow = glfwCreateWindow(windowWidth, windowHeight, "OpenGL - Minesweeper", nullptr, nullptr);
 
+    WindowWidth = windowWidth;
+    WindowHeight = windowHeight;
 
     glfwMakeContextCurrent(glfwWindow);
 
     glfwSetFramebufferSizeCallback(glfwWindow, [](GLFWwindow* window, int width, int height)
     {
+        WindowWidth = width;
+        WindowHeight = height;
+
         glViewport(0, 0, width, height);
     });
 
-    // glfwSetCursorPosCallback(glfwWindow, [](GLFWwindow*, double mouseX, double mouseY)
-    // {
-    //     MouseX = static_cast<int>(mouseX);
-    //     MouseY = static_cast<int>(mouseY);
-    // });
+    glfwSetCursorPosCallback(glfwWindow, [](GLFWwindow*, double mouseX, double mouseY)
+    {
+        MouseX = static_cast<std::uint32_t>(mouseX);
+        MouseY = static_cast<std::uint32_t>(mouseY);
+    });
 
     gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress));
 
@@ -339,10 +350,59 @@ private:
 };
 
 
+const float Fx(const float x, float b = 1.0f, const float xOffset = 0.0f, const float yOffset = 0.0f)
+{
+    return b * std::powf((x - xOffset), 2) + yOffset;
+};
+
+
+
+
+glm::vec2 CartesianToNDC(const glm::vec2& position, const std::uint32_t windowWidth, const std::uint32_t windowHeight)
+{
+    return
+    {
+        ((2.0f * position.x) / WindowWidth),
+        ((2.0f * position.y) / WindowHeight),
+    };
+};
+
+glm::vec2 ScreenToNDC(const glm::vec2& position)
+{
+    return
+    {
+        ((2.0f * position.x) / WindowWidth) - 1.0f,
+        ((2.0f * position.y) / WindowHeight) - 1.0f,
+    };
+};
+
+glm::vec2 ScreenToCartesian(const glm::vec2& position)
+{
+    return
+    {
+        position.x - (WindowWidth / 2.0f),
+        -position.y - (WindowHeight / 2.0f),
+    };
+};
+
+glm::vec2 MouseToCartesian()
+{
+    return ScreenToCartesian({ MouseX, MouseY });
+};
+
+
 
 int main()
 {
-    GLFWwindow* glfwWindow = InitializeGLFWWindow(800, 600);
+
+    constexpr std::uint32_t initialWindowWidth = 800;
+    constexpr std::uint32_t initialWindowHeight = 600;
+
+    GLFWwindow* glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight);
+
+    ScreenToNDC({ 0, 0 });
+
+
 
     SetupOpenGL();
 
@@ -385,7 +445,9 @@ int main()
 
 
     glm::mat4 transfrom1 = glm::scale(glm::mat4(1.0f), { 0.1f, 0.1f, 0.1f });
-    glm::mat4 transfrom2 = glm::translate(transfrom1, { 1.0f, 0.0f, 0.0f });
+    // glm::mat4 transfrom2 = transfrom1;
+    glm::mat4 transfrom2 = glm::mat4(1.0f);
+
 
     std::uint32_t transformVBO = 0;
     glGenBuffers(1, &transformVBO);
@@ -412,19 +474,21 @@ int main()
     glVertexAttribDivisor(5, 1);
 
 
-
     glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
 
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(transfrom1), glm::value_ptr(transfrom1));
     glBufferSubData(GL_ARRAY_BUFFER, sizeof(transfrom2), sizeof(transfrom2), glm::value_ptr(transfrom2));
 
 
+
+
     const std::uint32_t effectTextureID = GenerateTexture("Resources\\Effect.png");
 
 
-    ShaderProgram shaderProgram = ShaderProgram("VertexShader.glsl", "FragmentShader.glsl");
+    const ShaderProgram shaderProgram = ShaderProgram("VertexShader.glsl", "FragmentShader.glsl");
 
     const ShaderProgram texturedShaderProgram = ShaderProgram("TexturedVertexShader.glsl", "TexturedFragmentShader.glsl");
+
 
 
 
@@ -442,6 +506,48 @@ int main()
         glBindVertexArray(vao);
         glBindBuffer(GL_ARRAY_BUFFER, vao);
         glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
+
+
+        // const auto cartesianMouse = MouseToCartesian();
+
+        // const float value = Fx(static_cast<float>(cartesianMouse.x), 0.01f);
+
+        // const glm::vec2 ndcValue = CartesianToNDC({ cartesianMouse.x, -cartesianMouse.y });
+
+
+
+        // const auto cartesianMouse = MouseToCartesian();
+        // const auto cartesianMouse = ScreenToCartesian({ 400, 300 });
+
+
+        // const glm::vec2 cartesian = ScreenToCartesian({ MouseX, 300});
+
+        // const float value = Fx(static_cast<float>(cartesian.x), 0.01f);
+
+        // const glm::vec2 ndcValue = CartesianToNDC({ cartesian.x, value });
+
+        // const glm::vec2 ndcValue = CartesianToNDC({ cartesian.x, cartesian.y });
+
+        // const glm::vec2 cartesian = ScreenToCartesian({ 400, 300 });
+
+        glm::vec2 cartesian = { MouseX, MouseY };
+
+
+        const float value = Fx(static_cast<float>(cartesian.x), 0.01f);
+
+        // const glm::vec2 ndcValue = CartesianToNDC(cartesian);
+
+        // cartesian.y = value;
+        const glm::vec2 ndcValue = ScreenToNDC({ 400, 100});
+
+
+        // const glm::vec2 ndcValue = CartesianToNDC({ 400, 300});
+
+        // transfrom2 = glm::translate(transfrom2, { std::cosf(static_cast<float>(glfwGetTime())) * 0.05f , std::sinf(static_cast<float>(glfwGetTime())) * 0.05f, 0.0f });
+        // glBufferSubData(GL_ARRAY_BUFFER, sizeof(transfrom2), sizeof(transfrom2), glm::value_ptr(transfrom2));
+
+        const auto transfrom2Copy = glm::translate(transfrom2, { ndcValue.x , ndcValue.y, 0.0f });
+        glBufferSubData(GL_ARRAY_BUFFER, sizeof(transfrom2), sizeof(transfrom2), glm::value_ptr(transfrom2Copy));
 
 
 
