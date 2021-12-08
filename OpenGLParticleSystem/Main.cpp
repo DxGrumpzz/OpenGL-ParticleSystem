@@ -350,9 +350,9 @@ private:
 };
 
 
-const float Fx(const float x, float b = 1.0f, const float xOffset = 0.0f, const float yOffset = 0.0f)
+constexpr float Fx(const float x, float a = 1.0f, float b = 1.0f)
 {
-    return b * std::powf((x - xOffset), 2) + yOffset;
+    return -a * (x * x) + (b * x);
 };
 
 
@@ -382,7 +382,7 @@ glm::vec2 ScreenToCartesian(const glm::vec2& position)
     return
     {
         position.x - (WindowWidth / 2.0f),
-        -position.y - (WindowHeight / 2.0f),
+        -(position.y - (WindowHeight / 2.0f)),
     };
 };
 
@@ -395,6 +395,21 @@ glm::vec2 MouseToCartesian()
 
 int main()
 {
+    /*
+    {
+        WindowWidth = 800;
+        WindowHeight = 600;
+
+        constexpr float s = 3.5f;
+
+        constexpr float value = Fx(s, 1.4f, 10.0f);
+
+        const glm::vec2 ndcValue = CartesianToNDC({ s, value });
+
+        __debugbreak();
+    };
+    */
+
 
     constexpr std::uint32_t initialWindowWidth = 800;
     constexpr std::uint32_t initialWindowHeight = 600;
@@ -444,10 +459,10 @@ int main()
     glEnableVertexAttribArray(1);
 
 
-
-    glm::mat4 transfrom1 = glm::scale(glm::mat4(1.0f), { 0.1f, 0.1f, 0.1f });
-    // glm::mat4 transfrom2 = transfrom1;
+    constexpr float scaleFactor = 0.05f;
+    glm::mat4 transfrom1 = glm::scale(glm::mat4(1.0f), { scaleFactor, scaleFactor, scaleFactor });
     glm::mat4 transfrom2 = transfrom1;
+    // glm::mat4 transfrom2 = glm::mat4(1.0f);
 
 
     std::uint32_t transformVBO = 0;
@@ -492,7 +507,7 @@ int main()
 
 
 
-
+    
     while (glfwWindowShouldClose(glfwWindow) == false)
     {
         glfwPollEvents();
@@ -508,18 +523,19 @@ int main()
         glBindBuffer(GL_ARRAY_BUFFER, vao);
         glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
 
-        
+
         glm::vec2 cartesianMouse = MouseToCartesian();
 
-        const float value = -Fx(static_cast<float>(cartesianMouse.x), 0.01f);
+        const float value = Fx(cartesianMouse.x, 1.0f, -22.0f);
 
-        const glm::vec2 ndcValue = CartesianToNDC({ cartesianMouse.x, value });
+        const glm::vec2 ndcValue = CartesianToNDC({ cartesianMouse.x, value }) / scaleFactor;
+
 
 
         const auto transfrom2Copy = glm::translate(transfrom2, { ndcValue.x , ndcValue.y, 0.0f });
         glBufferSubData(GL_ARRAY_BUFFER, sizeof(transfrom2), sizeof(transfrom2), glm::value_ptr(transfrom2Copy));
 
-        
+
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 2);
 
         glfwSwapBuffers(glfwWindow);
