@@ -8,6 +8,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <fstream>
+#include <random>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -506,15 +507,31 @@ int main()
     const ShaderProgram texturedShaderProgram = ShaderProgram("TexturedVertexShader.glsl", "TexturedFragmentShader.glsl");
 
 
+    float trajectoryX = 0.0f;
+    float rate = 0.1f;
 
+
+    std::mt19937 rng = std::mt19937(std::random_device {}());
+
+    const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(0.1f, 0.7f);
+
+    const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.1f, 3.0f);
+    const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(-22.0f, 22.7f);
     
+
+    float a = trajectoryADistribution(rng);
+    float b = trajectoryBDistribution(rng);
+
+    if (std::signbit(b) != std::signbit(rate))
+        rate = -rate;
+
+
     while (glfwWindowShouldClose(glfwWindow) == false)
     {
         glfwPollEvents();
 
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 
         texturedShaderProgram.Bind();
 
@@ -524,21 +541,31 @@ int main()
         glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
 
 
-        glm::vec2 cartesianMouse = MouseToCartesian();
+        const float trajectoryY = Fx(trajectoryX, a, b);
 
-        const float value = Fx(cartesianMouse.x, 1.0f, -22.0f);
-
-        const glm::vec2 ndcValue = CartesianToNDC({ cartesianMouse.x, value }) / scaleFactor;
-
+        const glm::vec2 ndcValue = CartesianToNDC({ trajectoryX, trajectoryY }) / scaleFactor;
 
 
         const auto transfrom2Copy = glm::translate(transfrom2, { ndcValue.x , ndcValue.y, 0.0f });
         glBufferSubData(GL_ARRAY_BUFFER, sizeof(transfrom2), sizeof(transfrom2), glm::value_ptr(transfrom2Copy));
 
+        trajectoryX += rate;
+        if (trajectoryY < -300.0f)
+        {
+            trajectoryX = 0.0f;
+            rate = 0.1f; 
+
+           a = trajectoryADistribution(rng);
+           b = trajectoryBDistribution(rng);
+
+            if (std::signbit(b) != std::signbit(rate))
+                rate = -rate;
+        };
 
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 2);
 
         glfwSwapBuffers(glfwWindow);
+
     };
 
     glfwDestroyWindow(glfwWindow);
