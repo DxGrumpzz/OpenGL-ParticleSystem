@@ -396,30 +396,10 @@ glm::vec2 MouseToCartesian()
 
 int main()
 {
-    /*
-    {
-        WindowWidth = 800;
-        WindowHeight = 600;
-
-        constexpr float s = 3.5f;
-
-        constexpr float value = Fx(s, 1.4f, 10.0f);
-
-        const glm::vec2 ndcValue = CartesianToNDC({ s, value });
-
-        __debugbreak();
-    };
-    */
-
-
     constexpr std::uint32_t initialWindowWidth = 800;
     constexpr std::uint32_t initialWindowHeight = 600;
 
     GLFWwindow* glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight);
-
-    ScreenToNDC({ 0, 0 });
-
-
 
     SetupOpenGL();
 
@@ -460,10 +440,26 @@ int main()
     glEnableVertexAttribArray(1);
 
 
+
+    struct Particle
+    {
+        float TrajectoryA = 0.0f;
+        float TrajectoryB = 0.0f;
+
+        float TrajectoryX = 0.0f;
+        float TrajectoryY = 0.0f;
+
+        float Rate = 0.0f;
+    };
+
+
+    constexpr std::uint32_t numberOfEffects = 100;
+    std::vector<Particle> effects = std::vector<Particle>(numberOfEffects);
+
+
     constexpr float scaleFactor = 0.05f;
-    glm::mat4 transfrom1 = glm::scale(glm::mat4(1.0f), { scaleFactor, scaleFactor, scaleFactor });
-    glm::mat4 transfrom2 = transfrom1;
-    // glm::mat4 transfrom2 = glm::mat4(1.0f);
+
+    glm::mat4 transfrom = glm::scale(glm::mat4(1.0f), { scaleFactor, scaleFactor, scaleFactor });
 
 
     std::uint32_t transformVBO = 0;
@@ -471,7 +467,7 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
 
     // glBufferData(GL_ARRAY_BUFFER, sizeof(transfrom), glm::value_ptr(transfrom), GL_DYNAMIC_DRAW);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(transfrom1) * 2, nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(transfrom) * numberOfEffects, nullptr, GL_DYNAMIC_DRAW);
 
 
     glVertexAttribPointer(2, 4, GL_FLOAT, false, sizeof(glm::vec4) * 4, 0);
@@ -491,12 +487,6 @@ int main()
     glVertexAttribDivisor(5, 1);
 
 
-    glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
-
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(transfrom1), glm::value_ptr(transfrom1));
-    glBufferSubData(GL_ARRAY_BUFFER, sizeof(transfrom2), sizeof(transfrom2), glm::value_ptr(transfrom2));
-
-
 
 
     const std::uint32_t effectTextureID = GenerateTexture("Resources\\Effect.png");
@@ -507,23 +497,33 @@ int main()
     const ShaderProgram texturedShaderProgram = ShaderProgram("TexturedVertexShader.glsl", "TexturedFragmentShader.glsl");
 
 
-    float trajectoryX = 0.0f;
-    float rate = 0.1f;
-
 
     std::mt19937 rng = std::mt19937(std::random_device {}());
 
     const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(0.1f, 0.7f);
 
-    const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.1f, 3.0f);
-    const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(-22.0f, 22.7f);
-    
+    // const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.0005f, 1.0f);
+    // const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(-100.0f, 100.7f);
 
-    float a = trajectoryADistribution(rng);
-    float b = trajectoryBDistribution(rng);
+    const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.01f, 1.0f);
+    const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(-10.0f, 10.0f);
 
-    if (std::signbit(b) != std::signbit(rate))
-        rate = -rate;
+    for (Particle& effect : effects)
+    {
+        float a = trajectoryADistribution(rng);
+        float b = trajectoryBDistribution(rng);
+
+        float rate = rateDistribution(rng);
+
+        if (std::signbit(b) != std::signbit(rate))
+            rate = -rate;
+
+        effect.TrajectoryA = a;
+        effect.TrajectoryB = b;
+
+        effect.Rate = rate;
+    };
+
 
 
     while (glfwWindowShouldClose(glfwWindow) == false)
@@ -541,31 +541,47 @@ int main()
         glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
 
 
-        const float trajectoryY = Fx(trajectoryX, a, b);
-
-        const glm::vec2 ndcValue = CartesianToNDC({ trajectoryX, trajectoryY }) / scaleFactor;
-
-
-        const auto transfrom2Copy = glm::translate(transfrom2, { ndcValue.x , ndcValue.y, 0.0f });
-        glBufferSubData(GL_ARRAY_BUFFER, sizeof(transfrom2), sizeof(transfrom2), glm::value_ptr(transfrom2Copy));
-
-        trajectoryX += rate;
-        if (trajectoryY < -300.0f)
+        
+        for (std::size_t index = 0; 
+             Particle& effect : effects)
         {
-            trajectoryX = 0.0f;
-            rate = 0.1f; 
+            effect.TrajectoryY = Fx(effect.TrajectoryX, effect.TrajectoryA, effect.TrajectoryB);
 
-           a = trajectoryADistribution(rng);
-           b = trajectoryBDistribution(rng);
 
-            if (std::signbit(b) != std::signbit(rate))
-                rate = -rate;
+            effect.TrajectoryX += effect.Rate;
+
+            if (effect.TrajectoryY < -300.0f)
+            {
+                effect.TrajectoryX = 0.0f;
+                effect.Rate = 0.1f;
+
+                float a = trajectoryADistribution(rng);
+                float b = trajectoryBDistribution(rng);
+
+                float rate = rateDistribution(rng);
+
+                if (std::signbit(b) != std::signbit(rate))
+                    rate = -rate;
+
+                effect.TrajectoryA = a;
+                effect.TrajectoryB = b;
+
+                effect.Rate = rate;
+            };
+
+
+            const glm::vec2 ndcValue = CartesianToNDC({ effect.TrajectoryX, effect.TrajectoryY }) / scaleFactor;
+
+            const auto transfromCopy = glm::translate(transfrom, { ndcValue.x , ndcValue.y, 0.0f });
+            glBufferSubData(GL_ARRAY_BUFFER, sizeof(transfrom) * index, sizeof(transfrom), glm::value_ptr(transfromCopy));
+
+            index++;
         };
 
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 2);
+
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numberOfEffects);
 
         glfwSwapBuffers(glfwWindow);
-
     };
 
     glfwDestroyWindow(glfwWindow);
