@@ -1,4 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
+#define STB_IMAGE_IMPLEMENTATION
+
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -9,15 +11,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <fstream>
 #include <random>
-
-#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#include <chrono>
 
 static std::uint32_t MouseX = 0;
 static std::uint32_t MouseY = 0;
 
-static std::uint32_t WindowWidth = 0;
-static std::uint32_t WindowHeight = 0;
+static int WindowWidth = 0;
+static int WindowHeight = 0;
 
 
 void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
@@ -359,7 +360,7 @@ constexpr float Fx(const float x, float a = 1.0f, float b = 1.0f)
 
 
 
-glm::vec2 CartesianToNDC(const glm::vec2& position)
+constexpr glm::vec2 CartesianToNDC(const glm::vec2& position)
 {
     return
     {
@@ -368,8 +369,7 @@ glm::vec2 CartesianToNDC(const glm::vec2& position)
     };
 };
 
-
-glm::vec2 ScreenToNDC(const glm::vec2& position)
+constexpr glm::vec2 ScreenToNDC(const glm::vec2& position)
 {
     return
     {
@@ -378,7 +378,7 @@ glm::vec2 ScreenToNDC(const glm::vec2& position)
     };
 };
 
-glm::vec2 ScreenToCartesian(const glm::vec2& position)
+constexpr glm::vec2 ScreenToCartesian(const glm::vec2& position)
 {
     return
     {
@@ -387,7 +387,7 @@ glm::vec2 ScreenToCartesian(const glm::vec2& position)
     };
 };
 
-glm::vec2 MouseToCartesian()
+constexpr glm::vec2 MouseToCartesian()
 {
     return ScreenToCartesian({ MouseX, MouseY });
 };
@@ -453,8 +453,8 @@ int main()
     };
 
 
-    constexpr std::uint32_t numberOfEffects = 100;
-    std::vector<Particle> effects = std::vector<Particle>(numberOfEffects);
+    constexpr std::uint32_t numberOfParticles = 25;
+    std::vector<Particle> particles = std::vector<Particle>(numberOfParticles);
 
 
     constexpr float scaleFactor = 0.05f;
@@ -467,7 +467,7 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
 
     // glBufferData(GL_ARRAY_BUFFER, sizeof(transfrom), glm::value_ptr(transfrom), GL_DYNAMIC_DRAW);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(transfrom) * numberOfEffects, nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(transfrom) * numberOfParticles, nullptr, GL_DYNAMIC_DRAW);
 
 
     glVertexAttribPointer(2, 4, GL_FLOAT, false, sizeof(glm::vec4) * 4, 0);
@@ -502,32 +502,43 @@ int main()
 
     const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(0.1f, 0.7f);
 
-    // const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.0005f, 1.0f);
-    // const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(-100.0f, 100.7f);
-
     const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.01f, 1.0f);
     const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(-10.0f, 10.0f);
 
-    for (Particle& effect : effects)
+
+    for (Particle& effect : particles)
     {
-        float a = trajectoryADistribution(rng);
-        float b = trajectoryBDistribution(rng);
+        const float newTrajectoryA = trajectoryADistribution(rng);
+        const float newTrajectoryB = trajectoryBDistribution(rng);
 
-        float rate = rateDistribution(rng);
+        float newRate = rateDistribution(rng);
 
-        if (std::signbit(b) != std::signbit(rate))
-            rate = -rate;
+        if (std::signbit(newTrajectoryB) != std::signbit(newRate))
+            newRate = -newRate;
 
-        effect.TrajectoryA = a;
-        effect.TrajectoryB = b;
+        effect.TrajectoryA = newTrajectoryA;
+        effect.TrajectoryB = newTrajectoryB;
 
-        effect.Rate = rate;
+        effect.Rate = newRate;
     };
 
 
 
+    std::chrono::steady_clock::time_point timePoint1;
+    std::chrono::steady_clock::time_point timePoint2;
+
+    std::chrono::duration<float> elapsedTime = std::chrono::duration<float>(0);
+
+    std::uint32_t elapsedFrames = 0;
+
+    constexpr auto fpsDisplayInterval = std::chrono::milliseconds(700);
+
+
     while (glfwWindowShouldClose(glfwWindow) == false)
     {
+
+        timePoint1 = std::chrono::steady_clock::now();
+
         glfwPollEvents();
 
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -541,32 +552,32 @@ int main()
         glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
 
 
-        
-        for (std::size_t index = 0; 
-             Particle& effect : effects)
+
+        for (std::size_t index = 0;
+             Particle & effect : particles)
         {
             effect.TrajectoryY = Fx(effect.TrajectoryX, effect.TrajectoryA, effect.TrajectoryB);
 
 
             effect.TrajectoryX += effect.Rate;
 
-            if (effect.TrajectoryY < -300.0f)
+            if (effect.TrajectoryY < -(WindowHeight / 2))
             {
                 effect.TrajectoryX = 0.0f;
-                effect.Rate = 0.1f;
+                effect.TrajectoryY = 0.0f;
 
-                float a = trajectoryADistribution(rng);
-                float b = trajectoryBDistribution(rng);
+                const float newTrajectoryA = trajectoryADistribution(rng);
+                const float newTrajectoryB = trajectoryBDistribution(rng);
 
-                float rate = rateDistribution(rng);
+                float newRate = rateDistribution(rng);
 
-                if (std::signbit(b) != std::signbit(rate))
-                    rate = -rate;
+                if (std::signbit(newTrajectoryB) != std::signbit(newRate))
+                    newRate = -newRate;
 
-                effect.TrajectoryA = a;
-                effect.TrajectoryB = b;
+                effect.TrajectoryA = newTrajectoryA;
+                effect.TrajectoryB = newTrajectoryB;
 
-                effect.Rate = rate;
+                effect.Rate = newRate;
             };
 
 
@@ -579,9 +590,31 @@ int main()
         };
 
 
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numberOfEffects);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numberOfParticles);
 
         glfwSwapBuffers(glfwWindow);
+
+        timePoint2 = std::chrono::steady_clock::now();
+
+        elapsedTime += std::chrono::duration_cast<std::chrono::duration<float>>(timePoint2 - timePoint1);
+
+
+        elapsedFrames++;
+
+
+        if (elapsedTime > fpsDisplayInterval)
+        {
+            float fps = elapsedFrames / elapsedTime.count();
+
+            elapsedFrames = 0;
+            elapsedTime = std::chrono::milliseconds(0);
+
+            char tileBuffer[16] { 0 };
+
+            sprintf_s(tileBuffer, sizeof(tileBuffer), "FPS: %.2f", fps);
+
+            glfwSetWindowTitle(glfwWindow, tileBuffer);
+        };
     };
 
     glfwDestroyWindow(glfwWindow);
