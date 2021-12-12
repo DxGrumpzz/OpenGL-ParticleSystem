@@ -48,7 +48,7 @@ void GLFWErrorCallback(int, const char* err_str)
 };
 
 
-GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight)
+GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_view windowTitle)
 {
     glfwInit();
 
@@ -59,12 +59,14 @@ GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight)
 
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* glfwWindow = glfwCreateWindow(windowWidth, windowHeight, "OpenGL - Minesweeper", nullptr, nullptr);
+    GLFWwindow* glfwWindow = glfwCreateWindow(windowWidth, windowHeight, windowTitle.data(), nullptr, nullptr);
 
     WindowWidth = windowWidth;
     WindowHeight = windowHeight;
 
     glfwMakeContextCurrent(glfwWindow);
+
+    glfwSwapInterval(0);
 
     glfwSetFramebufferSizeCallback(glfwWindow, [](GLFWwindow* window, int width, int height)
     {
@@ -354,12 +356,11 @@ private:
 };
 
 
+
 constexpr float Fx(const float x, float a = 1.0f, float b = 1.0f)
 {
     return -a * (x * x) + (b * x);
 };
-
-
 
 
 constexpr glm::vec2 CartesianToNDC(const glm::vec2& position)
@@ -396,14 +397,167 @@ constexpr glm::vec2 MouseToCartesian()
 
 
 
+struct Particle
+{
+    float TrajectoryA = 0.0f;
+    float TrajectoryB = 0.0f;
+
+    float TrajectoryX = 0.0f;
+    float TrajectoryY = 0.0f;
+
+    float Rate = 0.0f;
+};
+
+
+class ParticleEmmiter
+{
+private:
+
+    std::reference_wrapper<const ShaderProgram> _shaderProgram;
+    std::mt19937& _rng;
+
+    std::reference_wrapper<const std::uniform_real_distribution<float>> _rateDistribution;
+    std::reference_wrapper<const std::uniform_real_distribution<float>> _trajectoryADistribution;
+    std::reference_wrapper<const std::uniform_real_distribution<float>> _trajectoryBDistribution;
+
+    glm::mat4 _particleTransform;
+    float _particleScaleFactor;
+
+    std::uint32_t _particleVAO;
+    std::uint32_t _textureID;
+    std::uint32_t _particleVertexPositionVBO;
+    std::uint32_t _particleTransformVBO;
+
+    std::vector<Particle> _particles;
+
+
+public:
+
+    ParticleEmmiter(const std::uint32_t numberOfParticles,
+                    const float particleScaleFactor,
+                    const glm::mat4& particleTransform,
+                    const ShaderProgram& shaderProgram,
+                    const std::uint32_t particleVAO,
+                    const std::uint32_t textureID,
+                    const std::uint32_t particleVertexPositionVBO,
+                    const std::uint32_t particleTransformVBO,
+                    std::mt19937& rng,
+                    const std::uniform_real_distribution<float>& rateDistribution,
+                    const std::uniform_real_distribution<float>& trajectoryADistribution,
+                    const std::uniform_real_distribution<float>& trajectoryBDistribution) :
+        _shaderProgram(shaderProgram),
+        _rng(rng),
+        _rateDistribution(rateDistribution),
+        _trajectoryADistribution(trajectoryADistribution),
+        _trajectoryBDistribution(trajectoryBDistribution),
+        _particleTransform(particleTransform),
+        _particleScaleFactor(particleScaleFactor),
+        _particleVAO(particleVAO),
+        _textureID(textureID),
+        _particleVertexPositionVBO(particleVertexPositionVBO),
+        _particleTransformVBO(particleTransformVBO)
+    {
+        _particles.resize(numberOfParticles);
+
+        for (Particle& particle : _particles)
+            InitializeParticleValues(particle, 0);
+    };
+
+
+public:
+
+    void Bind() const
+    {
+        _shaderProgram.get().Bind();
+
+        glBindVertexArray(_particleVAO);
+        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, _textureID);
+
+        glBindBuffer(GL_ARRAY_BUFFER, _particleVertexPositionVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, _particleTransformVBO);
+    };
+
+
+    void Update(const float deltaTime)
+    {
+        for (std::size_t index = 0;
+             Particle & effect : _particles)
+        {
+            effect.TrajectoryX += effect.Rate * deltaTime;
+            effect.TrajectoryY = Fx(effect.TrajectoryX, effect.TrajectoryA, effect.TrajectoryB);
+
+
+            if (effect.TrajectoryY < -(WindowHeight / 2))
+            {
+                effect.TrajectoryX = 0.0f;
+                effect.TrajectoryY = 0.0f;
+
+                InitializeParticleValues(effect, index);
+            };
+
+
+            const glm::vec2 ndcValue = CartesianToNDC({ effect.TrajectoryX, effect.TrajectoryY }) / _particleScaleFactor;
+
+            const auto transfromCopy = glm::translate(_particleTransform, { ndcValue.x , ndcValue.y, 0.0f });
+            glBufferSubData(GL_ARRAY_BUFFER, sizeof(_particleTransform) * index, sizeof(_particleTransform), glm::value_ptr(transfromCopy));
+
+            index++;
+        };
+
+    };
+
+    void Draw() const
+    {
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, static_cast<std::uint32_t>(_particles.size()));
+    };
+
+
+private:
+
+
+    void InitializeParticleValues(Particle& particle, const std::size_t particleIndex)
+    {
+        const float newTrajectoryA = _trajectoryADistribution(_rng);
+        float newTrajectoryB = _trajectoryBDistribution(_rng);
+
+        if ((particleIndex & 1) == 1)
+        {
+            newTrajectoryB *= -1;
+        };
+
+        float newRate = _rateDistribution(_rng);
+
+        if (std::signbit(newTrajectoryB) != std::signbit(newRate))
+            newRate = -newRate;
+
+        particle.TrajectoryA = newTrajectoryA;
+        particle.TrajectoryB = newTrajectoryB;
+
+        particle.Rate = newRate;
+    };
+
+};
+
+
+
 int main()
 {
     constexpr std::uint32_t initialWindowWidth = 800;
     constexpr std::uint32_t initialWindowHeight = 600;
 
-    GLFWwindow* glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight);
+    GLFWwindow* glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight,
+                                                  "OpenGL - Particle emmiter");
 
     SetupOpenGL();
+
+
+
+    std::uint32_t vao = 0;
+    glGenVertexArrays(1, &vao);
+
+    glBindVertexArray(vao);
 
 
     constexpr float vertices[] =
@@ -423,15 +577,9 @@ int main()
         -1.0f, -1.0f,  0.0f, 0.0f,
     };
 
-
-    std::uint32_t vao = 0;
-    glGenVertexArrays(1, &vao);
-
-    glBindVertexArray(vao);
-
-
-    glGenBuffers(1, &vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vao);
+    std::uint32_t vertexPositionVBO = 0;
+    glGenBuffers(1, &vertexPositionVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, vertexPositionVBO);
 
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
@@ -443,21 +591,8 @@ int main()
 
 
 
-    struct Particle
-    {
-        float TrajectoryA = 0.0f;
-        float TrajectoryB = 0.0f;
 
-        float TrajectoryX = 0.0f;
-        float TrajectoryY = 0.0f;
-
-        float Rate = 0.0f;
-    };
-
-
-    constexpr std::uint32_t numberOfParticles = 50;
-    std::vector<Particle> particles = std::vector<Particle>(numberOfParticles);
-
+    constexpr std::uint32_t numberOfParticles = 500;
 
     constexpr float scaleFactor = 0.05f;
 
@@ -491,7 +626,7 @@ int main()
 
 
 
-    const std::uint32_t effectTextureID = GenerateTexture("Resources\\Effect.png");
+    const std::uint32_t particleTextureID = GenerateTexture("Resources\\Particle.png");
 
 
     const ShaderProgram shaderProgram = ShaderProgram("VertexShader.glsl", "FragmentShader.glsl");
@@ -502,27 +637,25 @@ int main()
 
     std::mt19937 rng = std::mt19937(std::random_device {}());
 
-    const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(0.1f, 0.7f);
+    const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(15.1f, 30.0f);
 
-    const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.01f, 1.0f);
-    const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(-10.0f, 10.0f);
+    const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.01f, 0.1f);
+    const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(4.4f, 4.5f);
 
 
-    for (Particle& effect : particles)
-    {
-        const float newTrajectoryA = trajectoryADistribution(rng);
-        const float newTrajectoryB = trajectoryBDistribution(rng);
+    ParticleEmmiter particleEmmiter = ParticleEmmiter(numberOfParticles,
+                                                      scaleFactor,
+                                                      transfrom,
+                                                      texturedShaderProgram,
+                                                      vao,
+                                                      particleTextureID,
+                                                      vertexPositionVBO,
+                                                      transformVBO,
+                                                      rng,
+                                                      rateDistribution,
+                                                      trajectoryADistribution,
+                                                      trajectoryBDistribution);
 
-        float newRate = rateDistribution(rng);
-
-        if (std::signbit(newTrajectoryB) != std::signbit(newRate))
-            newRate = -newRate;
-
-        effect.TrajectoryA = newTrajectoryA;
-        effect.TrajectoryB = newTrajectoryB;
-
-        effect.Rate = newRate;
-    };
 
 
 
@@ -533,12 +666,14 @@ int main()
 
     std::uint32_t elapsedFrames = 0;
 
+    std::chrono::duration<float> delta;
+
     constexpr auto fpsDisplayInterval = std::chrono::milliseconds(700);
+
 
 
     while (glfwWindowShouldClose(glfwWindow) == false)
     {
-
         timePoint1 = std::chrono::steady_clock::now();
 
         glfwPollEvents();
@@ -546,61 +681,24 @@ int main()
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        texturedShaderProgram.Bind();
-
-        glBindTexture(GL_TEXTURE_2D, effectTextureID);
-        glBindVertexArray(vao);
-        glBindBuffer(GL_ARRAY_BUFFER, vao);
-        glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
 
 
+        particleEmmiter.Bind();
 
-        for (std::size_t index = 0;
-             Particle & effect : particles)
-        {
-            effect.TrajectoryY = Fx(effect.TrajectoryX, effect.TrajectoryA, effect.TrajectoryB);
+        particleEmmiter.Update(delta.count());
 
+        particleEmmiter.Draw();
+        
 
-            effect.TrajectoryX += effect.Rate;
-
-            if (effect.TrajectoryY < -(WindowHeight / 2))
-            {
-                effect.TrajectoryX = 0.0f;
-                effect.TrajectoryY = 0.0f;
-
-                const float newTrajectoryA = trajectoryADistribution(rng);
-                const float newTrajectoryB = trajectoryBDistribution(rng);
-
-                float newRate = rateDistribution(rng);
-
-                if (std::signbit(newTrajectoryB) != std::signbit(newRate))
-                    newRate = -newRate;
-
-                effect.TrajectoryA = newTrajectoryA;
-                effect.TrajectoryB = newTrajectoryB;
-
-                effect.Rate = newRate;
-            };
-
-
-            const glm::vec2 ndcValue = CartesianToNDC({ effect.TrajectoryX, effect.TrajectoryY }) / scaleFactor;
-
-            const auto transfromCopy = glm::translate(transfrom, { ndcValue.x , ndcValue.y, 0.0f });
-            glBufferSubData(GL_ARRAY_BUFFER, sizeof(transfrom) * index, sizeof(transfrom), glm::value_ptr(transfromCopy));
-
-            index++;
-        };
-
-
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, numberOfParticles);
 
         glfwSwapBuffers(glfwWindow);
 
+
         timePoint2 = std::chrono::steady_clock::now();
 
-        elapsedTime += std::chrono::duration_cast<std::chrono::duration<float>>(timePoint2 - timePoint1);
 
-
+        delta = timePoint2 - timePoint1;
+        elapsedTime += std::chrono::duration<float>(delta);
         elapsedFrames++;
 
 
@@ -618,6 +716,7 @@ int main()
             glfwSetWindowTitle(glfwWindow, tileBuffer);
         };
     };
+
 
     glfwDestroyWindow(glfwWindow);
 };
