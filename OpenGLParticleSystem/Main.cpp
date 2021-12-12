@@ -1,5 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define STB_IMAGE_IMPLEMENTATION
+#define GLM_CONSTEXPR_SIMD
+
 
 
 #include <glad/glad.h>
@@ -453,7 +455,7 @@ int main()
     };
 
 
-    constexpr std::uint32_t numberOfParticles = 25;
+    constexpr std::uint32_t numberOfParticles = 50;
     std::vector<Particle> particles = std::vector<Particle>(numberOfParticles);
 
 
