@@ -2,8 +2,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define GLM_CONSTEXPR_SIMD
 
-
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -381,12 +379,17 @@ constexpr glm::vec2 ScreenToNDC(const glm::vec2& position)
     };
 };
 
-constexpr glm::vec2 ScreenToCartesian(const glm::vec2& position)
+constexpr glm::vec2 MouseToNDC()
+{
+    return ScreenToNDC({ MouseX, MouseY });
+};
+
+constexpr glm::vec2 ScreenToCartesian(const glm::vec2& screenPosition)
 {
     return
     {
-        position.x - (WindowWidth / 2.0f),
-        -(position.y - (WindowHeight / 2.0f)),
+        screenPosition.x - (WindowWidth / 2.0f),
+        -(screenPosition.y - (WindowHeight / 2.0f)),
     };
 };
 
@@ -402,10 +405,11 @@ struct Particle
     float TrajectoryA = 0.0f;
     float TrajectoryB = 0.0f;
 
-    float TrajectoryX = 0.0f;
-    float TrajectoryY = 0.0f;
+    glm::vec2 Trajectory = glm::vec2(1.0f);
 
     float Rate = 0.0f;
+
+    glm::mat4 Transform = glm::mat4(1.0f);
 };
 
 
@@ -471,7 +475,7 @@ public:
         _shaderProgram.get().Bind();
 
         glBindVertexArray(_particleVAO);
-        
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, _textureID);
 
@@ -483,22 +487,22 @@ public:
     void Update(const float deltaTime)
     {
         for (std::size_t index = 0;
-             Particle & effect : _particles)
+             Particle & particle : _particles)
         {
-            effect.TrajectoryX += effect.Rate * deltaTime;
-            effect.TrajectoryY = Fx(effect.TrajectoryX, effect.TrajectoryA, effect.TrajectoryB);
+            particle.Trajectory.x += particle.Rate * deltaTime;
+            particle.Trajectory.y = Fx(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
 
 
-            if (effect.TrajectoryY < -(WindowHeight / 2))
+            if (particle.Trajectory.y < -(WindowHeight / 2))
             {
-                effect.TrajectoryX = 0.0f;
-                effect.TrajectoryY = 0.0f;
+                particle.Trajectory.x = 0.0f;
+                particle.Trajectory.y = 0.0f;
 
-                InitializeParticleValues(effect, index);
+                InitializeParticleValues(particle, index);
             };
 
 
-            const glm::vec2 ndcValue = CartesianToNDC({ effect.TrajectoryX, effect.TrajectoryY }) / _particleScaleFactor;
+            const glm::vec2 ndcValue = CartesianToNDC({ particle.Trajectory.x, particle.Trajectory.y }) / _particleScaleFactor;
 
             const auto transfromCopy = glm::translate(_particleTransform, { ndcValue.x , ndcValue.y, 0.0f });
             glBufferSubData(GL_ARRAY_BUFFER, sizeof(_particleTransform) * index, sizeof(_particleTransform), glm::value_ptr(transfromCopy));
@@ -506,6 +510,35 @@ public:
             index++;
         };
 
+    };
+
+    void Update(const float deltaTime, const glm::mat4& transform)
+    {
+        for (std::size_t index = 0;
+             Particle & particle : _particles)
+        {
+            particle.Trajectory.x += particle.Rate * deltaTime;
+            particle.Trajectory.y = Fx(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
+
+            const glm::vec2 ndcPosition = CartesianToNDC({ particle.Trajectory.x, particle.Trajectory.y }) / _particleScaleFactor;
+            auto transfromCopy = glm::translate(_particleTransform, { ndcPosition.x , ndcPosition.y, 0.0f }) * particle.Transform;
+
+
+            const glm::vec3 screenPosition = glm::vec3 (transfromCopy[3]);
+
+            if (screenPosition.y < -1.0f)
+            {
+                particle.Transform = transform;
+
+                particle.Trajectory = glm::vec2(0.0f);
+
+                InitializeParticleValues(particle, index);
+            };
+
+            glBufferSubData(GL_ARRAY_BUFFER, sizeof(_particleTransform) * index, sizeof(_particleTransform), glm::value_ptr(transfromCopy));
+
+            index++;
+        };
     };
 
     void Draw() const
@@ -592,11 +625,11 @@ int main()
 
 
 
-    constexpr std::uint32_t numberOfParticles = 500;
+    constexpr std::uint32_t numberOfParticles = 250;
 
-    constexpr float scaleFactor = 0.05f;
+    constexpr float particalScaleFactor = 0.05f;
 
-    glm::mat4 transfrom = glm::scale(glm::mat4(1.0f), { scaleFactor, scaleFactor, scaleFactor });
+    glm::mat4 transfrom = glm::scale(glm::mat4(1.0f), { particalScaleFactor, particalScaleFactor, particalScaleFactor });
 
 
     std::uint32_t transformVBO = 0;
@@ -644,7 +677,7 @@ int main()
 
 
     ParticleEmmiter particleEmmiter = ParticleEmmiter(numberOfParticles,
-                                                      scaleFactor,
+                                                      particalScaleFactor,
                                                       transfrom,
                                                       texturedShaderProgram,
                                                       vao,
@@ -685,10 +718,12 @@ int main()
 
         particleEmmiter.Bind();
 
-        particleEmmiter.Update(delta.count());
+        const auto mouseNDC = MouseToNDC() / particalScaleFactor;
+
+        particleEmmiter.Update(delta.count(), glm::translate(glm::mat4(1.0f), { mouseNDC.x, mouseNDC.y, 0.0f }));
 
         particleEmmiter.Draw();
-        
+
 
 
         glfwSwapBuffers(glfwWindow);
