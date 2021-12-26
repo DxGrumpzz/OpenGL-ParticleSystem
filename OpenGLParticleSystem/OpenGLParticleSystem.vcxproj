@@ -166,6 +166,14 @@
     <None Include="TexturedVertexShader.glsl" />
     <None Include="VertexShader.glsl" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="BufferLayout.hpp" />
+    <ClInclude Include="GLUtilities.hpp" />
+    <ClInclude Include="Math.hpp" />
+    <ClInclude Include="ShaderProgram.hpp" />
+    <ClInclude Include="VertexArray.hpp" />
+    <ClInclude Include="VertexBuffer.hpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

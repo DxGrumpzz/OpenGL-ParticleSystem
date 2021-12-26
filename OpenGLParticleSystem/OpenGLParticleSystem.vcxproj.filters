@@ -13,6 +13,9 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{d890c329-c0c6-49ba-ab5e-673cd1bfb578}</UniqueIdentifier>
     </Filter>
+    <Filter Include="GLUtilities">
+      <UniqueIdentifier>{248778b4-d602-463b-b579-60a789f88d90}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="FragmentShader.glsl">
@@ -27,5 +30,23 @@
     <None Include="TexturedVertexShader.glsl">
       <Filter>Shaders</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="VertexBuffer.hpp">
+      <Filter>GLUtilities</Filter>
+    </ClInclude>
+    <ClInclude Include="GLUtilities.hpp">
+      <Filter>GLUtilities</Filter>
+    </ClInclude>
+    <ClInclude Include="BufferLayout.hpp">
+      <Filter>GLUtilities</Filter>
+    </ClInclude>
+    <ClInclude Include="VertexArray.hpp">
+      <Filter>GLUtilities</Filter>
+    </ClInclude>
+    <ClInclude Include="Math.hpp" />
+    <ClInclude Include="ShaderProgram.hpp">
+      <Filter>GLUtilities</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

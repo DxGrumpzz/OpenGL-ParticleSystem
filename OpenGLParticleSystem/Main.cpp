@@ -1,26 +1,25 @@
 #define WIN32_LEAN_AND_MEAN
-#define STB_IMAGE_IMPLEMENTATION
 #define GLM_CONSTEXPR_SIMD
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <iostream>
-#include <glm/vec3.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <fstream>
 #include <random>
-#include <stb_image.h>
 #include <chrono>
 #include <functional>
 
+#include "VertexBuffer.hpp"
+#include "VertexArray.hpp"
+#include "BufferLayout.hpp"
+#include "Math.hpp"
+#include "ShaderProgram.hpp"
 
-static std::uint32_t MouseX = 0;
-static std::uint32_t MouseY = 0;
 
-static int WindowWidth = 0;
-static int WindowHeight = 0;
+
+std::uint32_t MouseX = 0;
+std::uint32_t MouseY = 0;
+
+int WindowWidth = 0;
+int WindowHeight = 0;
 
 std::function<void(void)> leftMouseButtonClickedCallback;
 
@@ -113,319 +112,12 @@ void SetupOpenGL()
 };
 
 
-std::uint32_t GenerateTexture(const std::string& texturePath)
-{
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-
-    std::uint32_t textureID = 0;
-    glGenTextures(1, &textureID);
-
-    glBindTexture(GL_TEXTURE_2D, textureID);
-
-
-    int width = 0;
-    int height = 0;
-    int channels = 0;
-
-    stbi_set_flip_vertically_on_load(true);
-    std::uint8_t* pixels = stbi_load(texturePath.c_str(), &width, &height, &channels, 0);
-
-    if (pixels == nullptr)
-    {
-        const char* error = stbi_failure_reason();
-
-        __debugbreak();
-    };
-
-
-    std::uint32_t format = 0;
-
-    if (channels == 4)
-        format = GL_RGBA;
-    else if (channels == 3)
-        format = GL_RGB;
-
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, pixels);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-
-    stbi_image_free(pixels);
-    pixels = nullptr;
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-
-    return textureID;
-};
-
-
-class ShaderProgram
-{
-public:
-
-    std::uint32_t ProgramID { 0 };
-
-    ShaderProgram(const std::string& vertexShaderPath,
-                  const std::string& fragmentShaderPath)
-    {
-        const std::uint32_t vertexShaderID = CompileVertexShader(vertexShaderPath);
-        const std::uint32_t fragmentShaderID = CompileFragmentShader(fragmentShaderPath);
-
-
-        ProgramID = CreateAndLinkShaderProgram(vertexShaderID, fragmentShaderID);
-
-        glDeleteShader(fragmentShaderID);
-        glDeleteShader(vertexShaderID);
-    };
-
-
-    void Bind() const
-    {
-        glUseProgram(ProgramID);
-    };
-
-
-    void SetVector3(const std::string& name, const float value1, const float value2, const float value3) const
-    {
-        const std::uint32_t colourUniformLocation = GetUniformLocation(name);
-
-        glUniform3f(colourUniformLocation, value1, value2, value3);
-    };
-
-    void SetVector3(const std::string& name, const glm::vec3& vector) const
-    {
-        SetVector3(name, vector.x, vector.y, vector.z);
-    };
-
-    void SetFloat(const std::string& name, const float& value) const
-    {
-        const std::uint32_t colourUniformLocation = GetUniformLocation(name);
-        glUniform1f(colourUniformLocation, value);
-    };
-
-    void SetMatrix4(const std::string& name, const glm::mat4& matrix) const
-    {
-        const std::uint32_t colourUniformLocation = GetUniformLocation(name);
-
-        glUniformMatrix4fv(colourUniformLocation, 1, false, glm::value_ptr(matrix));
-    };
-
-    void SetInt(const std::string& name, const int value) const
-    {
-        const std::uint32_t colourUniformLocation = GetUniformLocation(name);
-
-        glUniform1i(colourUniformLocation, value);
-    };
-
-    void SetBool(const std::string& name, const bool value) const
-    {
-        SetInt(name, value);
-    };
-
-private:
-
-
-    std::uint32_t CompileVertexShader(const std::string& filename)
-    {
-        const std::string vertexShaderSource = ReadAllText(filename);
-
-        std::uint32_t vertexShaderID = 0;
-        vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
-
-        const char* vertexShaderSourcePointer = vertexShaderSource.c_str();
-        const int vertexShaderSourceLength = static_cast<int>(vertexShaderSource.length());
-
-        glShaderSource(vertexShaderID, 1, &vertexShaderSourcePointer, &vertexShaderSourceLength);
-        glCompileShader(vertexShaderID);
-
-
-        int success = 0;
-        glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &success);
-
-
-        if (!success)
-        {
-            int bufferLength = 0;
-            glGetShaderiv(vertexShaderID, GL_INFO_LOG_LENGTH, &bufferLength);
-
-            std::string error;
-            error.resize(bufferLength);
-
-            glGetShaderInfoLog(vertexShaderID, bufferLength, &bufferLength, error.data());
-
-
-            std::cerr << "Vertex shader compilation error:\n" << error << "\n";
-
-            __debugbreak();
-        };
-
-        return vertexShaderID;
-    };
-
-
-    std::uint32_t CompileFragmentShader(const std::string& filename)
-    {
-        const std::string fragmentShaderSource = ReadAllText(filename);
-
-        std::uint32_t fragmentShaderID = 0;
-        fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
-
-        const char* fragmentShaderSourcePointer = fragmentShaderSource.c_str();
-        const int fragmentShaderSourceLength = static_cast<int>(fragmentShaderSource.length());
-
-        glShaderSource(fragmentShaderID, 1, &fragmentShaderSourcePointer, &fragmentShaderSourceLength);
-        glCompileShader(fragmentShaderID);
-
-
-        int success = 0;
-        glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &success);
-
-
-        if (!success)
-        {
-            int bufferLength = 0;
-            glGetShaderiv(fragmentShaderID, GL_INFO_LOG_LENGTH, &bufferLength);
-
-            std::string error;
-            error.resize(bufferLength);
-
-            glGetShaderInfoLog(fragmentShaderID, bufferLength, &bufferLength, error.data());
-
-            std::cerr << "Fragment shader compilation error:\n" << error << "\n";
-
-            __debugbreak();
-        };
-
-        return fragmentShaderID;
-    };
-
-
-    std::uint32_t CreateAndLinkShaderProgram(const std::uint32_t vertexShaderID, const std::uint32_t fragmentShaderID)
-    {
-        const std::uint32_t programID = glCreateProgram();
-
-        glAttachShader(programID, vertexShaderID);
-        glAttachShader(programID, fragmentShaderID);
-        glLinkProgram(programID);
-
-        int success = 0;
-        glGetProgramiv(programID, GL_LINK_STATUS, &success);
-
-        if (!success)
-        {
-            int bufferLength = 0;
-            glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &bufferLength);
-
-            std::string error;
-            error.resize(bufferLength);
-
-            glGetProgramInfoLog(programID, bufferLength, &bufferLength, error.data());
-
-            throw error;
-        };
-
-        return programID;
-    };
-
-
-    std::uint32_t GetUniformLocation(const std::string& name) const
-    {
-        const int uniformLocation = glGetUniformLocation(ProgramID, name.c_str());
-
-        if (uniformLocation == -1)
-        {
-            std::cerr << "Uniform location error: Unable to find \"" << name << "\"\n";
-            __debugbreak();
-        };
-
-        return uniformLocation;
-    };
-
-
-
-    std::string ReadAllText(const std::string& filename)
-    {
-        std::ifstream fileStream = std::ifstream(filename, std::ios::ate);
-
-        std::string fileContents;
-
-        fileContents.resize(fileStream.tellg());
-
-        fileStream.seekg(std::ios::beg);
-
-        fileStream.read(fileContents.data(), fileContents.size());
-
-        return fileContents;
-    };
-
-};
 
 
 
 constexpr float Fx(const float x, float a = 1.0f, float b = 1.0f)
 {
     return -a * (x * x) + (b * x);
-};
-
-
-constexpr glm::vec2 CartesianToNDC(const glm::vec2& position)
-{
-    return
-    {
-        ((2.0f * position.x) / WindowWidth),
-        ((2.0f * position.y) / WindowHeight),
-    };
-};
-
-constexpr glm::vec2 ScreenToNDC(const glm::vec2& position)
-{
-    return
-    {
-        ((2.0f * position.x) / WindowWidth) - 1.0f,
-        -(((2.0f * position.y) / WindowHeight) - 1.0f),
-    };
-};
-
-constexpr glm::vec2 MouseToNDC()
-{
-    return ScreenToNDC({ MouseX, MouseY });
-};
-
-constexpr glm::vec2 ScreenToCartesian(const glm::vec2& screenPosition)
-{
-    return
-    {
-        screenPosition.x - (WindowWidth / 2.0f),
-        -(screenPosition.y - (WindowHeight / 2.0f)),
-    };
-};
-
-constexpr glm::vec2 MouseToCartesian()
-{
-    return ScreenToCartesian({ MouseX, MouseY });
-};
-
-constexpr std::size_t GetAPITypeSizeInBytes(const std::uint32_t glTypeID)
-{
-    switch (glTypeID)
-    {
-        case GL_FLOAT:
-        {
-            return sizeof(float);
-        };
-
-        default:
-            assert(false && "Unsupported type");
-            return -1;
-    };
-
 };
 
 
@@ -596,172 +288,6 @@ private:
 
 
 
-class VertexBuffer
-{
-private:
-    std::uint32_t _id = 0;
-
-
-public:
-
-    VertexBuffer(const std::vector<std::byte>& bufferData)
-    {
-        glGenBuffers(1, &_id);
-        glBindBuffer(GL_ARRAY_BUFFER, _id);
-        glBufferData(GL_ARRAY_BUFFER, bufferData.size(), bufferData.data(), GL_STATIC_DRAW);
-    };
-
-    VertexBuffer(const void* bufferData, std::size_t bufferSizeInBytes)
-    {
-        glGenBuffers(1, &_id);
-        glBindBuffer(GL_ARRAY_BUFFER, _id);
-        glBufferData(GL_ARRAY_BUFFER, bufferSizeInBytes, bufferData, GL_STATIC_DRAW);
-    };
-
-    ~VertexBuffer()
-    {
-        glDeleteBuffers(1, &_id);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-    };
-
-public:
-
-    void Bind() const
-    {
-        glBindBuffer(GL_ARRAY_BUFFER, _id);
-    };
-
-
-
-public:
-
-    std::uint32_t GetID()
-    {
-        return _id;
-    };
-
-
-};
-
-
-struct BufferLayoutElement
-{
-    std::uint32_t StartingIndex = 0;
-    std::uint32_t ElementCount = 0;
-    std::uint32_t ApiTypeID = 0;
-    bool Normalize = false;
-    std::uint32_t Divisor = 0;
-};
-
-
-class BufferLayout
-{
-private:
-
-    std::vector<BufferLayoutElement> _elements;
-    std::uint32_t _stride = 0;
-
-public:
-
-    template<typename TElement>
-    void AddElement(const std::uint32_t startingIndex, const std::uint32_t elementCount, const std::uint32_t divisor = 0, const bool normalize = false)
-    {
-        static_assert(false, "Unsupported type");
-    };
-
-
-    template<>
-    void AddElement<float>(const std::uint32_t startingIndex, const std::uint32_t elementCount, const std::uint32_t divisor, const bool normalize)
-    {
-        _elements.emplace_back(startingIndex, elementCount, GL_FLOAT, normalize, divisor);
-
-        _stride += sizeof(float) * elementCount;
-    };
-
-
-public:
-
-    const std::vector<BufferLayoutElement>& GetElements() const
-    {
-        return _elements;
-    };
-
-    std::uint32_t GetStride() const
-    {
-        return _stride;
-    };
-
-};
-
-
-class VertexArray
-{
-private:
-    std::uint32_t _id = 0;
-
-public:
-
-    VertexArray()
-    {
-        glGenVertexArrays(1, &_id);
-        glBindVertexArray(_id);
-    };
-
-    ~VertexArray()
-    {
-        glDeleteVertexArrays(1, &_id);
-        glBindVertexArray(0);
-    };
-
-public:
-
-    void Bind() const
-    {
-        glBindVertexArray(_id);
-    };
-
-
-    void AddBuffer(const VertexBuffer& vertexBuffer, const BufferLayout& bufferLayout)
-    {
-        Bind();
-
-        vertexBuffer.Bind();
-
-        const auto& bufferLayoutElements = bufferLayout.GetElements();
-
-        std::size_t offset = 0;
-
-        for (std::size_t i = 0; i < bufferLayoutElements.size(); i++)
-        {
-            const auto& bufferLayoutElement = bufferLayoutElements[i];
-
-            glVertexAttribPointer(bufferLayoutElement.StartingIndex,
-                                  bufferLayoutElement.ElementCount,
-                                  bufferLayoutElement.ApiTypeID,
-                                  bufferLayoutElement.Normalize,
-                                  bufferLayout.GetStride(),
-                                  reinterpret_cast<const void*>(offset));
-
-            glEnableVertexAttribArray(bufferLayoutElement.StartingIndex);
-
-            glVertexAttribDivisor(bufferLayoutElement.StartingIndex, bufferLayoutElement.Divisor);
-
-            offset += GetAPITypeSizeInBytes(bufferLayoutElement.ApiTypeID) * bufferLayoutElement.ElementCount;
-        };
-
-    };
-
-public:
-
-    std::uint32_t GetID()
-    {
-        return _id;
-    };
-
-};
-
-
-
 int main()
 {
     constexpr std::uint32_t initialWindowWidth = 800;
@@ -771,6 +297,8 @@ int main()
                                                   "OpenGL - Particle emmiter");
 
     SetupOpenGL();
+
+
 
     VertexArray vao = VertexArray();
 
@@ -827,7 +355,7 @@ int main()
 
 
 
-    const std::uint32_t particleTextureID = GenerateTexture("Resources\\Particle.png");
+    const std::uint32_t particleTextureID = GL::GenerateTexture("Resources\\Particle.png");
 
 
     const ShaderProgram shaderProgram = ShaderProgram("VertexShader.glsl", "FragmentShader.glsl");
