@@ -27,7 +27,7 @@ namespace GLUtilities
     };
 
 
-    std::uint32_t GenerateTexture(const std::string& texturePath)
+    std::uint32_t GenerateTexture(const std::string_view& texturePath, bool keepBound = false)
     {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -50,7 +50,7 @@ namespace GLUtilities
         int channels = 0;
 
         stbi_set_flip_vertically_on_load(true);
-        std::uint8_t* pixels = stbi_load(texturePath.c_str(), &width, &height, &channels, 0);
+        std::uint8_t* pixels = stbi_load(texturePath.data(), &width, &height, &channels, 0);
 
         if (pixels == nullptr)
         {
@@ -73,7 +73,9 @@ namespace GLUtilities
 
         stbi_image_free(pixels);
         pixels = nullptr;
-        glBindTexture(GL_TEXTURE_2D, 0);
+
+        if (keepBound == false)
+            glBindTexture(GL_TEXTURE_2D, 0);
 
 
         return textureID;

@@ -12,6 +12,7 @@
 #include "BufferLayout.hpp"
 #include "Math.hpp"
 #include "ShaderProgram.hpp"
+#include "Texture.hpp"
 
 
 
@@ -22,6 +23,7 @@ int WindowWidth = 0;
 int WindowHeight = 0;
 
 std::function<void(void)> leftMouseButtonClickedCallback;
+std::function<void(void)> rightMouseButtonClickedCallback;
 
 
 void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
@@ -79,11 +81,17 @@ GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_
 
     glfwSetMouseButtonCallback(glfwWindow, [](GLFWwindow*, int mouseButton, int action, int modifierBits)
     {
-        if ((mouseButton == GLFW_MOUSE_BUTTON_1) &&
+        if ((mouseButton == GLFW_MOUSE_BUTTON_LEFT) &&
             (action == GLFW_PRESS))
         {
             leftMouseButtonClickedCallback();
+        }
+        else if ((mouseButton == GLFW_MOUSE_BUTTON_RIGHT) &&
+                 (action == GLFW_PRESS))
+        {
+            rightMouseButtonClickedCallback();
         };
+
     });
 
 
@@ -114,12 +122,10 @@ void SetupOpenGL()
 
 
 
-
 constexpr float Fx(const float x, float a = 1.0f, float b = 1.0f)
 {
     return -a * (x * x) + (b * x);
 };
-
 
 
 struct Particle
@@ -150,10 +156,12 @@ private:
     glm::mat4 _particleActiveTransform;
     float _particleScaleFactor;
 
-    std::uint32_t _particleVAO;
-    std::uint32_t _textureID;
-    std::uint32_t _particleVertexPositionVBO;
-    std::uint32_t _particleTransformVBO;
+    std::reference_wrapper<const VertexArray> _particleVAO;
+    
+    std::reference_wrapper<const Texture> _particleTexture;
+
+    std::reference_wrapper<const VertexBuffer> _particleVertexPositionVBO;
+    std::reference_wrapper<const VertexBuffer> _particleTransformVBO;
 
     std::vector<Particle> _particles;
 
@@ -164,10 +172,10 @@ public:
                     const float particleScaleFactor,
                     const glm::mat4& particleTransform,
                     const ShaderProgram& shaderProgram,
-                    const std::uint32_t particleVAO,
-                    const std::uint32_t textureID,
-                    const std::uint32_t particleVertexPositionVBO,
-                    const std::uint32_t particleTransformVBO,
+                    const VertexArray& particleVAO,
+                    const Texture& texture,
+                    const VertexBuffer& particleVertexPositionVBO,
+                    const VertexBuffer& particleTransformVBO,
                     std::mt19937& rng,
                     const std::uniform_real_distribution<float>& rateDistribution,
                     const std::uniform_real_distribution<float>& trajectoryADistribution,
@@ -181,7 +189,7 @@ public:
         _particleActiveTransform(glm::mat4(1.0f)),
         _particleScaleFactor(particleScaleFactor),
         _particleVAO(particleVAO),
-        _textureID(textureID),
+        _particleTexture(texture),
         _particleVertexPositionVBO(particleVertexPositionVBO),
         _particleTransformVBO(particleTransformVBO)
     {
@@ -204,13 +212,12 @@ public:
     {
         _shaderProgram.get().Bind();
 
-        glBindVertexArray(_particleVAO);
+        _particleVAO.get().Bind();
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, _textureID);
+        _particleTexture.get().Bind();
 
-        glBindBuffer(GL_ARRAY_BUFFER, _particleVertexPositionVBO);
-        glBindBuffer(GL_ARRAY_BUFFER, _particleTransformVBO);
+        _particleVertexPositionVBO.get().Bind();
+        _particleTransformVBO.get().Bind();
     };
 
     void Update(const float deltaTime)
@@ -218,21 +225,38 @@ public:
         for (std::size_t index = 0;
              Particle & particle : _particles)
         {
+            constexpr float rateIncrease = 0.01f;
+
+            // Negative
+            if (std::signbit(particle.Rate) == true)
+                particle.Rate -= rateIncrease;
+            // Positive
+            else
+                particle.Rate += rateIncrease;
+
             particle.Trajectory.x += particle.Rate * deltaTime;
+
+
+
             particle.Trajectory.y = Fx(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
 
 
             const glm::vec2 ndcPosition = CartesianToNDC({ particle.Trajectory.x, particle.Trajectory.y }) / _particleScaleFactor;
-            const auto transfromCopy = glm::translate(_globalParticleTransform, { ndcPosition.x , ndcPosition.y, 0.0f }) * particle.Transform;
+
+            // First apply the transform which translates the particle onto some screen position
+            const auto transfromCopy = glm::translate(_globalParticleTransform, { ndcPosition.x , ndcPosition.y, 0.0f })
+                // Apply custom particle transform
+                * particle.Transform;
 
             const glm::vec3 screenPosition = glm::vec3(transfromCopy[3]);
 
+            // If the particle is outside screen bounds.. 
             if (screenPosition.y < -1.0f)
             {
+                // Apply custom particle transform
                 particle.Transform = _particleActiveTransform;
 
-                particle.Trajectory = glm::vec2(0.0f);
-
+                // "Reset" the particle
                 InitializeParticleValues(particle, index);
             };
 
@@ -261,7 +285,6 @@ public:
 
 private:
 
-
     void InitializeParticleValues(Particle& particle, const std::size_t particleIndex)
     {
         const float newTrajectoryA = _trajectoryADistribution(_rng);
@@ -280,11 +303,12 @@ private:
         particle.TrajectoryA = newTrajectoryA;
         particle.TrajectoryB = newTrajectoryB;
 
+        particle.Trajectory = glm::vec2(0.0f);
+
         particle.Rate = newRate;
     };
 
 };
-
 
 
 
@@ -300,7 +324,7 @@ int main()
 
 
 
-    VertexArray vao = VertexArray();
+    VertexArray particleVao = VertexArray();
 
 
     constexpr float vertexPositions[] =
@@ -320,6 +344,7 @@ int main()
         -1.0f, -1.0f,  0.0f, 0.0f,
     };
 
+
     VertexBuffer vertexPositionVBO = VertexBuffer(&vertexPositions, sizeof(vertexPositions));
 
     BufferLayout vertexPositionBufferlayout;
@@ -330,16 +355,16 @@ int main()
     // Texture coordinate
     vertexPositionBufferlayout.AddElement<float>(1, 2);
 
-    vao.AddBuffer(vertexPositionVBO, vertexPositionBufferlayout);
+    particleVao.AddBuffer(vertexPositionVBO, vertexPositionBufferlayout);
 
 
 
-    constexpr std::uint32_t numberOfParticles = 250;
 
     constexpr float particleScaleFactor = 0.05f;
 
     glm::mat4 particleTransfrom = glm::scale(glm::mat4(1.0f), { particleScaleFactor, particleScaleFactor, particleScaleFactor });
 
+    constexpr std::uint32_t numberOfParticles = 250;
 
     VertexBuffer transformVBO = VertexBuffer(nullptr, sizeof(particleTransfrom) * numberOfParticles);
 
@@ -350,12 +375,12 @@ int main()
     transformBufferlayout.AddElement<float>(4, 4, 1);
     transformBufferlayout.AddElement<float>(5, 4, 1);
 
-    vao.AddBuffer(transformVBO, transformBufferlayout);
+    particleVao.AddBuffer(transformVBO, transformBufferlayout);
 
 
 
 
-    const std::uint32_t particleTextureID = GL::GenerateTexture("Resources\\Particle.png");
+    const Texture particleTexture = Texture("Resources\\Particle.png");
 
 
     const ShaderProgram shaderProgram = ShaderProgram("VertexShader.glsl", "FragmentShader.glsl");
@@ -366,7 +391,7 @@ int main()
 
     std::mt19937 rng = std::mt19937(std::random_device {}());
 
-    const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(15.1f, 30.0f);
+    const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(10.1f, 30.0f);
 
     const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.01f, 0.1f);
     const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(4.4f, 4.5f);
@@ -384,15 +409,21 @@ int main()
                                    particleScaleFactor,
                                    glm::translate(particleTransfrom, { mouseNDC.x, mouseNDC.y, 0 }),
                                    texturedShaderProgram,
-                                   vao.GetID(),
-                                   particleTextureID,
-                                   vertexPositionVBO.GetID(),
-                                   transformVBO.GetID(),
+                                   particleVao,
+                                   particleTexture,
+                                   vertexPositionVBO,
+                                   transformVBO,
                                    rng,
                                    rateDistribution,
                                    trajectoryADistribution,
                                    trajectoryBDistribution));
     };
+
+    rightMouseButtonClickedCallback = [&]()
+    {
+        particleEmmiters.clear();
+    };
+
 
 
     std::chrono::steady_clock::time_point timePoint1;
@@ -418,14 +449,12 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-
         for (ParticleEmmiter& particleEmmiter : particleEmmiters)
         {
             particleEmmiter.Bind();
             particleEmmiter.Update(delta.count());
             particleEmmiter.Draw();
         };
-
 
 
         glfwSwapBuffers(glfwWindow);

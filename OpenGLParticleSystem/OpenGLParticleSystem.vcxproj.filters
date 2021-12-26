@@ -48,5 +48,8 @@
     <ClInclude Include="ShaderProgram.hpp">
       <Filter>GLUtilities</Filter>
     </ClInclude>
+    <ClInclude Include="Texture.hpp">
+      <Filter>GLUtilities</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

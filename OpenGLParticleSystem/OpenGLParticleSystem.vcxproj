@@ -171,6 +171,7 @@
     <ClInclude Include="GLUtilities.hpp" />
     <ClInclude Include="Math.hpp" />
     <ClInclude Include="ShaderProgram.hpp" />
+    <ClInclude Include="Texture.hpp" />
     <ClInclude Include="VertexArray.hpp" />
     <ClInclude Include="VertexBuffer.hpp" />
   </ItemGroup>
