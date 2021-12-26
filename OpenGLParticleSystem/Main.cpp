@@ -15,6 +15,7 @@
 #include <chrono>
 #include <functional>
 
+
 static std::uint32_t MouseX = 0;
 static std::uint32_t MouseY = 0;
 
@@ -22,6 +23,7 @@ static int WindowWidth = 0;
 static int WindowHeight = 0;
 
 std::function<void(void)> leftMouseButtonClickedCallback;
+
 
 void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 {
@@ -410,6 +412,22 @@ constexpr glm::vec2 MouseToCartesian()
     return ScreenToCartesian({ MouseX, MouseY });
 };
 
+constexpr std::size_t GetAPITypeSizeInBytes(const std::uint32_t glTypeID)
+{
+    switch (glTypeID)
+    {
+        case GL_FLOAT:
+        {
+            return sizeof(float);
+        };
+
+        default:
+            assert(false && "Unsupported type");
+            return -1;
+    };
+
+};
+
 
 
 struct Particle
@@ -577,6 +595,173 @@ private:
 
 
 
+
+class VertexBuffer
+{
+private:
+    std::uint32_t _id = 0;
+
+
+public:
+
+    VertexBuffer(const std::vector<std::byte>& bufferData)
+    {
+        glGenBuffers(1, &_id);
+        glBindBuffer(GL_ARRAY_BUFFER, _id);
+        glBufferData(GL_ARRAY_BUFFER, bufferData.size(), bufferData.data(), GL_STATIC_DRAW);
+    };
+
+    VertexBuffer(const void* bufferData, std::size_t bufferSizeInBytes)
+    {
+        glGenBuffers(1, &_id);
+        glBindBuffer(GL_ARRAY_BUFFER, _id);
+        glBufferData(GL_ARRAY_BUFFER, bufferSizeInBytes, bufferData, GL_STATIC_DRAW);
+    };
+
+    ~VertexBuffer()
+    {
+        glDeleteBuffers(1, &_id);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    };
+
+public:
+
+    void Bind() const
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, _id);
+    };
+
+
+
+public:
+
+    std::uint32_t GetID()
+    {
+        return _id;
+    };
+
+
+};
+
+
+struct BufferLayoutElement
+{
+    std::uint32_t StartingIndex = 0;
+    std::uint32_t ElementCount = 0;
+    std::uint32_t ApiTypeID = 0;
+    bool Normalize = false;
+    std::uint32_t Divisor = 0;
+};
+
+
+class BufferLayout
+{
+private:
+
+    std::vector<BufferLayoutElement> _elements;
+    std::uint32_t _stride = 0;
+
+public:
+
+    template<typename TElement>
+    void AddElement(const std::uint32_t startingIndex, const std::uint32_t elementCount, const std::uint32_t divisor = 0, const bool normalize = false)
+    {
+        static_assert(false, "Unsupported type");
+    };
+
+
+    template<>
+    void AddElement<float>(const std::uint32_t startingIndex, const std::uint32_t elementCount, const std::uint32_t divisor, const bool normalize)
+    {
+        _elements.emplace_back(startingIndex, elementCount, GL_FLOAT, normalize, divisor);
+
+        _stride += sizeof(float) * elementCount;
+    };
+
+
+public:
+
+    const std::vector<BufferLayoutElement>& GetElements() const
+    {
+        return _elements;
+    };
+
+    std::uint32_t GetStride() const
+    {
+        return _stride;
+    };
+
+};
+
+
+class VertexArray
+{
+private:
+    std::uint32_t _id = 0;
+
+public:
+
+    VertexArray()
+    {
+        glGenVertexArrays(1, &_id);
+        glBindVertexArray(_id);
+    };
+
+    ~VertexArray()
+    {
+        glDeleteVertexArrays(1, &_id);
+        glBindVertexArray(0);
+    };
+
+public:
+
+    void Bind() const
+    {
+        glBindVertexArray(_id);
+    };
+
+
+    void AddBuffer(const VertexBuffer& vertexBuffer, const BufferLayout& bufferLayout)
+    {
+        Bind();
+
+        vertexBuffer.Bind();
+
+        const auto& bufferLayoutElements = bufferLayout.GetElements();
+
+        std::size_t offset = 0;
+
+        for (std::size_t i = 0; i < bufferLayoutElements.size(); i++)
+        {
+            const auto& bufferLayoutElement = bufferLayoutElements[i];
+
+            glVertexAttribPointer(bufferLayoutElement.StartingIndex,
+                                  bufferLayoutElement.ElementCount,
+                                  bufferLayoutElement.ApiTypeID,
+                                  bufferLayoutElement.Normalize,
+                                  bufferLayout.GetStride(),
+                                  reinterpret_cast<const void*>(offset));
+
+            glEnableVertexAttribArray(bufferLayoutElement.StartingIndex);
+
+            glVertexAttribDivisor(bufferLayoutElement.StartingIndex, bufferLayoutElement.Divisor);
+
+            offset += GetAPITypeSizeInBytes(bufferLayoutElement.ApiTypeID) * bufferLayoutElement.ElementCount;
+        };
+
+    };
+
+public:
+
+    std::uint32_t GetID()
+    {
+        return _id;
+    };
+
+};
+
+
+
 int main()
 {
     constexpr std::uint32_t initialWindowWidth = 800;
@@ -587,15 +772,10 @@ int main()
 
     SetupOpenGL();
 
+    VertexArray vao = VertexArray();
 
 
-    std::uint32_t vao = 0;
-    glGenVertexArrays(1, &vao);
-
-    glBindVertexArray(vao);
-
-
-    constexpr float vertices[] =
+    constexpr float vertexPositions[] =
     {
         // Bottom left
         -1.0f, -1.0f,  0.0f, 0.0f,
@@ -612,18 +792,17 @@ int main()
         -1.0f, -1.0f,  0.0f, 0.0f,
     };
 
-    std::uint32_t vertexPositionVBO = 0;
-    glGenBuffers(1, &vertexPositionVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexPositionVBO);
+    VertexBuffer vertexPositionVBO = VertexBuffer(&vertexPositions, sizeof(vertexPositions));
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    BufferLayout vertexPositionBufferlayout;
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, false, sizeof(float) * 4, 0);
-    glEnableVertexAttribArray(0);
+    // Vertex position
+    vertexPositionBufferlayout.AddElement<float>(0, 2);
 
-    glVertexAttribPointer(1, 2, GL_FLOAT, false, sizeof(float) * 4, reinterpret_cast<const void*>(sizeof(float) * 2));
-    glEnableVertexAttribArray(1);
+    // Texture coordinate
+    vertexPositionBufferlayout.AddElement<float>(1, 2);
 
+    vao.AddBuffer(vertexPositionVBO, vertexPositionBufferlayout);
 
 
 
@@ -634,29 +813,16 @@ int main()
     glm::mat4 particleTransfrom = glm::scale(glm::mat4(1.0f), { particleScaleFactor, particleScaleFactor, particleScaleFactor });
 
 
-    std::uint32_t transformVBO = 0;
-    glGenBuffers(1, &transformVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, transformVBO);
+    VertexBuffer transformVBO = VertexBuffer(nullptr, sizeof(particleTransfrom) * numberOfParticles);
 
-    // glBufferData(GL_ARRAY_BUFFER, sizeof(transfrom), glm::value_ptr(transfrom), GL_DYNAMIC_DRAW);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(particleTransfrom) * numberOfParticles, nullptr, GL_DYNAMIC_DRAW);
+    BufferLayout transformBufferlayout;
 
+    transformBufferlayout.AddElement<float>(2, 4, 1);
+    transformBufferlayout.AddElement<float>(3, 4, 1);
+    transformBufferlayout.AddElement<float>(4, 4, 1);
+    transformBufferlayout.AddElement<float>(5, 4, 1);
 
-    glVertexAttribPointer(2, 4, GL_FLOAT, false, sizeof(glm::vec4) * 4, 0);
-    glEnableVertexAttribArray(2);
-    glVertexAttribDivisor(2, 1);
-
-    glVertexAttribPointer(3, 4, GL_FLOAT, false, sizeof(glm::vec4) * 4, reinterpret_cast<const void*>(sizeof(glm::vec4) * 1));
-    glEnableVertexAttribArray(3);
-    glVertexAttribDivisor(3, 1);
-
-    glVertexAttribPointer(4, 4, GL_FLOAT, false, sizeof(glm::vec4) * 4, reinterpret_cast<const void*>(sizeof(glm::vec4) * 2));
-    glEnableVertexAttribArray(4);
-    glVertexAttribDivisor(4, 1);
-
-    glVertexAttribPointer(5, 4, GL_FLOAT, false, sizeof(glm::vec4) * 4, reinterpret_cast<const void*>(sizeof(glm::vec4) * 3));
-    glEnableVertexAttribArray(5);
-    glVertexAttribDivisor(5, 1);
+    vao.AddBuffer(transformVBO, transformBufferlayout);
 
 
 
@@ -690,10 +856,10 @@ int main()
                                    particleScaleFactor,
                                    glm::translate(particleTransfrom, { mouseNDC.x, mouseNDC.y, 0 }),
                                    texturedShaderProgram,
-                                   vao,
+                                   vao.GetID(),
                                    particleTextureID,
-                                   vertexPositionVBO,
-                                   transformVBO,
+                                   vertexPositionVBO.GetID(),
+                                   transformVBO.GetID(),
                                    rng,
                                    rateDistribution,
                                    trajectoryADistribution,
