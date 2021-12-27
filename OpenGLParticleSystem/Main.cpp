@@ -323,8 +323,7 @@ int main()
     SetupOpenGL();
 
 
-
-    VertexArray particleVao = VertexArray();
+    VertexArray particleVAO = VertexArray();
 
 
     constexpr float vertexPositions[] =
@@ -355,27 +354,41 @@ int main()
     // Texture coordinate
     vertexPositionBufferlayout.AddElement<float>(1, 2);
 
-    particleVao.AddBuffer(vertexPositionVBO, vertexPositionBufferlayout);
+    particleVAO.AddBuffer(vertexPositionVBO, vertexPositionBufferlayout);
 
 
+    constexpr std::uint32_t numberOfParticles = 250;
 
 
+    std::vector<float> opacities;
+    opacities.resize(numberOfParticles, 0.75f);
+
+    // Opacity
+    VertexBuffer opacityVBO = VertexBuffer(opacities.data(), sizeof(float) * numberOfParticles);
+
+    BufferLayout opacityBufferLayout;
+
+    opacityBufferLayout.AddElement<float>(2, 1, 1);
+
+    particleVAO.AddBuffer(opacityVBO, opacityBufferLayout);
+
+
+    // Transforms
     constexpr float particleScaleFactor = 0.05f;
 
     glm::mat4 particleTransfrom = glm::scale(glm::mat4(1.0f), { particleScaleFactor, particleScaleFactor, particleScaleFactor });
 
-    constexpr std::uint32_t numberOfParticles = 250;
 
     VertexBuffer transformVBO = VertexBuffer(nullptr, sizeof(particleTransfrom) * numberOfParticles);
 
     BufferLayout transformBufferlayout;
 
-    transformBufferlayout.AddElement<float>(2, 4, 1);
     transformBufferlayout.AddElement<float>(3, 4, 1);
     transformBufferlayout.AddElement<float>(4, 4, 1);
     transformBufferlayout.AddElement<float>(5, 4, 1);
+    transformBufferlayout.AddElement<float>(6, 4, 1);
 
-    particleVao.AddBuffer(transformVBO, transformBufferlayout);
+    particleVAO.AddBuffer(transformVBO, transformBufferlayout);
 
 
 
@@ -409,7 +422,7 @@ int main()
                                    particleScaleFactor,
                                    glm::translate(particleTransfrom, { mouseNDC.x, mouseNDC.y, 0 }),
                                    texturedShaderProgram,
-                                   particleVao,
+                                   particleVAO,
                                    particleTexture,
                                    vertexPositionVBO,
                                    transformVBO,
@@ -449,8 +462,6 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-        texturedShaderProgram.Bind();
-        texturedShaderProgram.SetFloat("Opacity", static_cast<float>(MouseX) / WindowWidth);
 
         for (ParticleEmmiter& particleEmmiter : particleEmmiters)
         {

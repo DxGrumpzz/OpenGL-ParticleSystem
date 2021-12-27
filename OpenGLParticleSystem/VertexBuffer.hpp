@@ -19,12 +19,17 @@ public:
         glBufferData(GL_ARRAY_BUFFER, bufferData.size(), bufferData.data(), GL_STATIC_DRAW);
     };
 
-    VertexBuffer(const void* bufferData, std::size_t bufferSizeInBytes)
+    VertexBuffer(const void* const bufferData, std::size_t bufferSizeInBytes)
     {
         glGenBuffers(1, &_id);
         glBindBuffer(GL_ARRAY_BUFFER, _id);
         glBufferData(GL_ARRAY_BUFFER, bufferSizeInBytes, bufferData, GL_STATIC_DRAW);
     };
+
+
+    // There shouldn't be any reason for this constrcutor to exist in this context, right?
+    VertexBuffer(const VertexBuffer&) = delete;
+
 
     ~VertexBuffer()
     {
@@ -33,6 +38,8 @@ public:
     };
 
 public:
+
+
 
     void Bind() const
     {

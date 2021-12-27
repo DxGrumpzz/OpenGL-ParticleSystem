@@ -20,7 +20,12 @@ class BufferLayout
 private:
 
     std::vector<BufferLayoutElement> _elements;
+
+    /// <summary>
+    /// The stride per vertex
+    /// </summary>
     std::uint32_t _stride = 0;
+
 
 public:
 
