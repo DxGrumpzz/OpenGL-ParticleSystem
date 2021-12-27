@@ -146,7 +146,7 @@ class ParticleEmmiter
 private:
 
     std::reference_wrapper<const ShaderProgram> _shaderProgram;
-    std::mt19937& _rng;
+    std::reference_wrapper<std::mt19937> _rng;
 
     std::reference_wrapper<const std::uniform_real_distribution<float>> _rateDistribution;
     std::reference_wrapper<const std::uniform_real_distribution<float>> _trajectoryADistribution;
@@ -157,7 +157,7 @@ private:
     float _particleScaleFactor;
 
     std::reference_wrapper<const VertexArray> _particleVAO;
-    
+
     std::reference_wrapper<const Texture> _particleTexture;
 
     std::reference_wrapper<const VertexBuffer> _particleVertexPositionVBO;
@@ -165,6 +165,7 @@ private:
 
     std::vector<Particle> _particles;
 
+    bool _desrtoyRequested = false;
 
 public:
 
@@ -222,9 +223,10 @@ public:
 
     void Update(const float deltaTime)
     {
-        for (std::size_t index = 0;
-             Particle & particle : _particles)
+        for (std::size_t i = 0; i < _particles.size(); i++)
         {
+            Particle& particle = _particles[i];
+
             constexpr float rateIncrease = 0.01f;
 
             // Negative
@@ -253,22 +255,31 @@ public:
             // If the particle is outside screen bounds.. 
             if (screenPosition.y < -1.0f)
             {
+                if (_desrtoyRequested == true)
+                {
+                    _particles.erase(_particles.begin() + i);
+                    continue;
+                };
+
                 // Apply custom particle transform
                 particle.Transform = _particleActiveTransform;
 
                 // "Reset" the particle
-                InitializeParticleValues(particle, index);
+                InitializeParticleValues(particle, i);
             };
 
-            glBufferSubData(GL_ARRAY_BUFFER, sizeof(_globalParticleTransform) * index, sizeof(_globalParticleTransform), glm::value_ptr(transfromCopy));
-
-            index++;
+            glBufferSubData(GL_ARRAY_BUFFER, sizeof(_globalParticleTransform) * i, sizeof(_globalParticleTransform), glm::value_ptr(transfromCopy));
         };
     };
 
     void Draw() const
     {
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, static_cast<std::uint32_t>(_particles.size()));
+    };
+
+    void Destory()
+    {
+        _desrtoyRequested = true;
     };
 
 
@@ -283,19 +294,30 @@ public:
     };
 
 
+    bool GetDestroyed() const
+    {
+        if (_desrtoyRequested == true)
+        {
+            return _particles.empty();
+        };
+
+        return false;
+    };
+
+
 private:
 
     void InitializeParticleValues(Particle& particle, const std::size_t particleIndex)
     {
-        const float newTrajectoryA = _trajectoryADistribution(_rng);
-        float newTrajectoryB = _trajectoryBDistribution(_rng);
+        const float newTrajectoryA = _trajectoryADistribution(_rng.get());
+        float newTrajectoryB = _trajectoryBDistribution(_rng.get());
 
         if ((particleIndex & 1) == 1)
         {
             newTrajectoryB *= -1;
         };
 
-        float newRate = _rateDistribution(_rng);
+        float newRate = _rateDistribution(_rng.get());
 
         if (std::signbit(newTrajectoryB) != std::signbit(newRate))
             newRate = -newRate;
@@ -434,7 +456,10 @@ int main()
 
     rightMouseButtonClickedCallback = [&]()
     {
-        particleEmmiters.clear();
+        for (ParticleEmmiter& particleEmmiter : particleEmmiters)
+        {
+            particleEmmiter.Destory();
+        };
     };
 
 
@@ -462,13 +487,25 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-
         for (ParticleEmmiter& particleEmmiter : particleEmmiters)
         {
             particleEmmiter.Bind();
             particleEmmiter.Update(delta.count());
             particleEmmiter.Draw();
         };
+
+        if (particleEmmiters.empty() == false)
+        {
+            const auto removeRange = std::remove_if(particleEmmiters.begin(), particleEmmiters.end(),
+                                          [](ParticleEmmiter& particleEmmiter)
+            {
+                return particleEmmiter.GetDestroyed() == true;
+            });
+
+            if (removeRange != particleEmmiters.end())
+                particleEmmiters.erase(removeRange);
+        };
+
 
 
         glfwSwapBuffers(glfwWindow);
