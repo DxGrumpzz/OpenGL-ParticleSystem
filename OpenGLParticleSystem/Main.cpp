@@ -144,6 +144,10 @@ struct Particle
     float Rate = 0.0f;
 
     glm::mat4 Transform = glm::mat4(1.0f);
+
+    float Opacity = 0.0f;
+
+    float OpacityDecreaseRate = 0.0f;
 };
 
 
@@ -157,6 +161,8 @@ private:
     std::reference_wrapper<const std::uniform_real_distribution<float>> _rateDistribution;
     std::reference_wrapper<const std::uniform_real_distribution<float>> _trajectoryADistribution;
     std::reference_wrapper<const std::uniform_real_distribution<float>> _trajectoryBDistribution;
+    std::reference_wrapper<const std::uniform_real_distribution<float>> _opacityDecreaseRateDistribution;
+
 
     glm::mat4 _globalParticleTransform;
     glm::mat4 _particleActiveTransform;
@@ -168,6 +174,7 @@ private:
 
     std::reference_wrapper<const VertexBuffer> _particleVertexPositionVBO;
     std::reference_wrapper<const VertexBuffer> _particleTransformVBO;
+    std::reference_wrapper<const VertexBuffer> _particleOpacityVBO;
 
     std::vector<Particle> _particles;
 
@@ -183,22 +190,26 @@ public:
                     const Texture& texture,
                     const VertexBuffer& particleVertexPositionVBO,
                     const VertexBuffer& particleTransformVBO,
+                    const VertexBuffer& particleOpacityVBO,
                     std::mt19937& rng,
                     const std::uniform_real_distribution<float>& rateDistribution,
                     const std::uniform_real_distribution<float>& trajectoryADistribution,
-                    const std::uniform_real_distribution<float>& trajectoryBDistribution) :
+                    const std::uniform_real_distribution<float>& trajectoryBDistribution,
+                    const std::uniform_real_distribution<float>& opacityDecreaseRateDistribution) :
         _shaderProgram(shaderProgram),
         _rng(rng),
         _rateDistribution(rateDistribution),
         _trajectoryADistribution(trajectoryADistribution),
         _trajectoryBDistribution(trajectoryBDistribution),
+        _opacityDecreaseRateDistribution(opacityDecreaseRateDistribution),
         _globalParticleTransform(particleTransform),
         _particleActiveTransform(glm::mat4(1.0f)),
         _particleScaleFactor(particleScaleFactor),
         _particleVAO(particleVAO),
         _particleTexture(texture),
         _particleVertexPositionVBO(particleVertexPositionVBO),
-        _particleTransformVBO(particleTransformVBO)
+        _particleTransformVBO(particleTransformVBO),
+        _particleOpacityVBO(particleOpacityVBO)
     {
         _particles.resize(numberOfParticles);
 
@@ -248,12 +259,11 @@ public:
             else
                 particle.Rate += rateIncrease;
 
+
             particle.Trajectory.x += particle.Rate * deltaTime;
-
-
-
             particle.Trajectory.y = ParticleTrajectoryFunction(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
 
+            particle.Opacity -= particle.OpacityDecreaseRate * deltaTime;
 
             const glm::vec2 ndcPosition = CartesianToNDC({ particle.Trajectory.x, particle.Trajectory.y }) / _particleScaleFactor;
 
@@ -265,7 +275,9 @@ public:
             const glm::vec3 screenPosition = glm::vec3(transfromCopy[3]);
 
             // If the particle is outside screen bounds.. 
-            if (screenPosition.y < -1.0f)
+            if ((screenPosition.y < -1.0f) ||
+                // Or if the particle is practically inivsible
+                (particle.Opacity < -0.1f))
             {
                 if (_desrtoyRequested == true)
                 {
@@ -274,14 +286,17 @@ public:
                     continue;
                 };
 
-                // Apply custom particle transform
-                particle.Transform = _particleActiveTransform;
-
                 // "Reset" the particle
                 InitializeParticleValues(particle, i);
+                continue;
             };
 
+
+            _particleTransformVBO.get().Bind();
             glBufferSubData(GL_ARRAY_BUFFER, sizeof(_globalParticleTransform) * i, sizeof(_globalParticleTransform), glm::value_ptr(transfromCopy));
+
+            _particleOpacityVBO.get().Bind();
+            glBufferSubData(GL_ARRAY_BUFFER, sizeof(particle.Opacity) * i, sizeof(particle.Opacity), &particle.Opacity);
 
             iterator++;
             i++;
@@ -326,27 +341,34 @@ private:
     void InitializeParticleValues(Particle& particle, const std::size_t particleIndex)
     {
         const float newTrajectoryA = _trajectoryADistribution(_rng.get());
-        float newTrajectoryB = _trajectoryBDistribution(_rng.get());
-
 
         // A very simple way of creating some trajectory variation
-        if ((particleIndex & 1) == 1)
-        {
-            newTrajectoryB *= -1;
-        };
+        const float newTrajectoryB = (particleIndex & 1) == 1 ?
+            -_trajectoryBDistribution(_rng.get()) :
+            _trajectoryBDistribution(_rng.get());
 
+        const float newOpacityDecreaseRate = _opacityDecreaseRateDistribution(_rng.get());
 
-        float newRate = _rateDistribution(_rng.get());
+        // Correct the rate depending on trajectory
+        const float newRate = std::signbit(newTrajectoryB) == true ?
+            // "Left" trajectory 
+            -_rateDistribution(_rng.get()) :
+            // "Right" trajectory
+            _rateDistribution(_rng.get());
 
-        if (std::signbit(newTrajectoryB) != std::signbit(newRate))
-            newRate = -newRate;
 
         particle.TrajectoryA = newTrajectoryA;
         particle.TrajectoryB = newTrajectoryB;
 
         particle.Trajectory = glm::vec2(0.0f);
-
         particle.Rate = newRate;
+
+        particle.Opacity = 1.0f;
+        particle.OpacityDecreaseRate = newOpacityDecreaseRate;
+
+
+        // Apply custom particle transform
+        particle.Transform = _particleActiveTransform;
     };
 
 };
@@ -406,14 +428,8 @@ int main()
 
     constexpr std::uint32_t numberOfParticles = 250;
 
-    // For now I set opacities from a "buffer". Will change later
-    std::vector<float> opacities;
-
-    // Fill the "buffer" with some default value(s)
-    opacities.resize(numberOfParticles, 0.75f);
-
-    // Opacity
-    VertexBuffer opacityVBO = VertexBuffer(opacities.data(), sizeof(float) * numberOfParticles);
+    // Particle opacity
+    VertexBuffer opacityVBO = VertexBuffer(nullptr, sizeof(float) * numberOfParticles);
 
     BufferLayout opacityBufferLayout;
 
@@ -458,6 +474,8 @@ int main()
     const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.01f, 0.1f);
     const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(4.4f, 4.5f);
 
+    const std::uniform_real_distribution opacityDecreaseRateDistribution = std::uniform_real_distribution<float>(0.1f, 0.4f);
+
 
     // A list of particle emmiters
     std::vector<ParticleEmmiter> particleEmmiters = std::vector<ParticleEmmiter>();
@@ -476,10 +494,12 @@ int main()
                                    particleTexture,
                                    vertexPositionVBO,
                                    transformVBO,
+                                   opacityVBO,
                                    rng,
                                    rateDistribution,
                                    trajectoryADistribution,
-                                   trajectoryBDistribution));
+                                   trajectoryBDistribution,
+                                   opacityDecreaseRateDistribution));
     };
 
     // Destory all particle emitters
@@ -513,7 +533,7 @@ int main()
     while (glfwWindowShouldClose(glfwWindow) == false)
     {
         timePoint1 = std::chrono::steady_clock::now();
-         
+
         glfwPollEvents();
 
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -523,7 +543,7 @@ int main()
         // Bind, update, and draw, particles
         auto iterator = particleEmmiters.begin();
 
-        while(iterator != particleEmmiters.cend())
+        while (iterator != particleEmmiters.cend())
         {
             ParticleEmmiter& particleEmmiter = *iterator;
 
