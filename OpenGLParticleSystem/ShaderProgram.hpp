@@ -10,20 +10,31 @@
 #include <fstream>
 
 
+/// <summary>
+/// A class that encapsulates the functionality of a Shader
+/// </summary>
 class ShaderProgram
 {
+private:
+
+    /// <summary>
+    /// An identifier used by the API
+    /// </summary>
+    std::uint32_t _programID { 0 };
+
+
 public:
 
-    std::uint32_t ProgramID { 0 };
 
     ShaderProgram(const std::string& vertexShaderPath,
                   const std::string& fragmentShaderPath)
     {
+        // Compile shaders
         const std::uint32_t vertexShaderID = CompileVertexShader(vertexShaderPath);
         const std::uint32_t fragmentShaderID = CompileFragmentShader(fragmentShaderPath);
 
-
-        ProgramID = CreateAndLinkShaderProgram(vertexShaderID, fragmentShaderID);
+        // Link and create the GL program
+        _programID = CreateAndLinkShaderProgram(vertexShaderID, fragmentShaderID);
 
         glDeleteShader(fragmentShaderID);
         glDeleteShader(vertexShaderID);
@@ -32,7 +43,7 @@ public:
 
     void Bind() const
     {
-        glUseProgram(ProgramID);
+        glUseProgram(_programID);
     };
 
 
@@ -73,9 +84,22 @@ public:
         SetInt(name, value);
     };
 
+
+public:
+
+    std::uint32_t GetProgramID()
+    {
+        return _programID;
+    };
+
+
 private:
 
-
+    /// <summary>
+    /// Compiles a vertex shader
+    /// </summary>
+    /// <param name="filename"> The path to the vertex shader </param>
+    /// <returns></returns>
     std::uint32_t CompileVertexShader(const std::string& filename)
     {
         const std::string vertexShaderSource = ReadAllText(filename);
@@ -90,6 +114,7 @@ private:
         glCompileShader(vertexShaderID);
 
 
+        // Ensure compilation is successful  
         int success = 0;
         glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &success);
 
@@ -114,6 +139,11 @@ private:
     };
 
 
+    /// <summary>
+    /// Compiles a fragment shader
+    /// </summary>
+    /// <param name="filename"> The path to the vertex shader </param>
+    /// <returns></returns>
     std::uint32_t CompileFragmentShader(const std::string& filename)
     {
         const std::string fragmentShaderSource = ReadAllText(filename);
@@ -128,6 +158,7 @@ private:
         glCompileShader(fragmentShaderID);
 
 
+        // Ensure compilation is successful  
         int success = 0;
         glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &success);
 
@@ -150,7 +181,12 @@ private:
         return fragmentShaderID;
     };
 
-
+    /// <summary>
+    /// Create a shader program and link compiled shader 
+    /// </summary>
+    /// <param name="vertexShaderID"></param>
+    /// <param name="fragmentShaderID"></param>
+    /// <returns></returns>
     std::uint32_t CreateAndLinkShaderProgram(const std::uint32_t vertexShaderID, const std::uint32_t fragmentShaderID)
     {
         const std::uint32_t programID = glCreateProgram();
@@ -159,6 +195,7 @@ private:
         glAttachShader(programID, fragmentShaderID);
         glLinkProgram(programID);
 
+        // Ensure linkage is successful
         int success = 0;
         glGetProgramiv(programID, GL_LINK_STATUS, &success);
 
@@ -179,9 +216,14 @@ private:
     };
 
 
+    /// <summary>
+    /// Find the location of a uniform
+    /// </summary>
+    /// <param name="name"></param>
+    /// <returns></returns>
     std::uint32_t GetUniformLocation(const std::string& name) const
     {
-        const int uniformLocation = glGetUniformLocation(ProgramID, name.c_str());
+        const int uniformLocation = glGetUniformLocation(_programID, name.c_str());
 
         if (uniformLocation == -1)
         {
@@ -193,17 +235,24 @@ private:
     };
 
 
-
+    /// <summary>
+    /// Read all text inside a file
+    /// </summary>
+    /// <param name="filename"> Path to sid file </param>
+    /// <returns></returns>
     std::string ReadAllText(const std::string& filename)
     {
+        // Open the file at the end so we can easily find its length
         std::ifstream fileStream = std::ifstream(filename, std::ios::ate);
 
         std::string fileContents;
 
+        // Resize the buffer to fit content
         fileContents.resize(fileStream.tellg());
 
         fileStream.seekg(std::ios::beg);
 
+        // Read file contents into the buffer
         fileStream.read(fileContents.data(), fileContents.size());
 
         return fileContents;

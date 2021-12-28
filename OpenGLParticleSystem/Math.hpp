@@ -11,7 +11,6 @@ extern int WindowWidth;
 extern int WindowHeight;
 
 
-
 constexpr glm::vec2 CartesianToNDC(const glm::vec2& cartesianPosition)
 {
     return

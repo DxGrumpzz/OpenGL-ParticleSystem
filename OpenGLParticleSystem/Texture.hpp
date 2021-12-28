@@ -6,7 +6,9 @@
 
 #include "GLUtilities.hpp"
 
-
+/// <summary>
+/// A simple encapsulation of a GL texture 
+/// </summary>
 class Texture
 {
 private:

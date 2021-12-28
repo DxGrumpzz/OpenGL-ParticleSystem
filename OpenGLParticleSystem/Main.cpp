@@ -69,6 +69,7 @@ GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_
 
     glfwMakeContextCurrent(glfwWindow);
 
+    // Draw as fast as computerly possible
     glfwSwapInterval(0);
 
     glfwSetFramebufferSizeCallback(glfwWindow, [](GLFWwindow* window, int width, int height)
@@ -106,7 +107,6 @@ GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_
     glfwShowWindow(glfwWindow);
 
     return glfwWindow;
-
 };
 
 
@@ -121,10 +121,16 @@ void SetupOpenGL()
 
 
 
-
-constexpr float Fx(const float x, float a = 1.0f, float b = 1.0f)
+/// <summary>
+/// A simple parabolic trajectory function, returns the next 'y' position of a particle depending on it's 'x' position
+/// </summary>
+/// <param name="particleX">  </param>
+/// <param name="a"> No idea what this actually does, but it affects the trajectory somewhat </param>
+/// <param name="b"> No idea what this actually does, but it affects the trajectory somewhat </param>
+/// <returns></returns>
+constexpr float ParticleTrajectoryFunction(const float particleX, float a = 1.0f, float b = 1.0f)
 {
-    return -a * (x * x) + (b * x);
+    return -a * (particleX * particleX) + (b * particleX);
 };
 
 
@@ -246,7 +252,7 @@ public:
 
 
 
-            particle.Trajectory.y = Fx(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
+            particle.Trajectory.y = ParticleTrajectoryFunction(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
 
 
             const glm::vec2 ndcPosition = CartesianToNDC({ particle.Trajectory.x, particle.Trajectory.y }) / _particleScaleFactor;
@@ -322,10 +328,13 @@ private:
         const float newTrajectoryA = _trajectoryADistribution(_rng.get());
         float newTrajectoryB = _trajectoryBDistribution(_rng.get());
 
+
+        // A very simple way of creating some trajectory variation
         if ((particleIndex & 1) == 1)
         {
             newTrajectoryB *= -1;
         };
+
 
         float newRate = _rateDistribution(_rng.get());
 
@@ -349,15 +358,19 @@ int main()
     constexpr std::uint32_t initialWindowWidth = 800;
     constexpr std::uint32_t initialWindowHeight = 600;
 
+    // Create a window
     GLFWwindow* glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight,
                                                   "OpenGL - Particle emmiter");
 
+    // Setup "boilerplate" GL functionality
     SetupOpenGL();
 
 
+    // The main VAO that will be used by the particle emmiter
     VertexArray particleVAO = VertexArray();
 
 
+    // Particle vertex position, along with texture coordinates
     constexpr float vertexPositions[] =
     {
         // Bottom left
@@ -376,6 +389,7 @@ int main()
     };
 
 
+    // A VBO for the vertex positions
     VertexBuffer vertexPositionVBO = VertexBuffer(&vertexPositions, sizeof(vertexPositions));
 
     BufferLayout vertexPositionBufferlayout;
@@ -389,10 +403,13 @@ int main()
     particleVAO.AddBuffer(vertexPositionVBO, vertexPositionBufferlayout);
 
 
+
     constexpr std::uint32_t numberOfParticles = 250;
 
-
+    // For now I set opacities from a "buffer". Will change later
     std::vector<float> opacities;
+
+    // Fill the "buffer" with some default value(s)
     opacities.resize(numberOfParticles, 0.75f);
 
     // Opacity
@@ -405,7 +422,7 @@ int main()
     particleVAO.AddBuffer(opacityVBO, opacityBufferLayout);
 
 
-    // Transforms
+    // Particle transforms
     constexpr float particleScaleFactor = 0.05f;
 
     glm::mat4 particleTransfrom = glm::scale(glm::mat4(1.0f), { particleScaleFactor, particleScaleFactor, particleScaleFactor });
@@ -424,28 +441,29 @@ int main()
 
 
 
-
+    // For now, create a default particle texture
     const Texture particleTexture = Texture("Resources\\Particle.png");
 
 
-    const ShaderProgram shaderProgram = ShaderProgram("VertexShader.glsl", "FragmentShader.glsl");
-
+    // A shader program that will be used by the Particle emitter
     const ShaderProgram texturedShaderProgram = ShaderProgram("TexturedVertexShader.glsl", "TexturedFragmentShader.glsl");
 
 
 
     std::mt19937 rng = std::mt19937(std::random_device {}());
 
+    // These values are completley arbitrary
     const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(10.1f, 30.0f);
 
     const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.01f, 0.1f);
     const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(4.4f, 4.5f);
 
 
-
+    // A list of particle emmiters
     std::vector<ParticleEmmiter> particleEmmiters = std::vector<ParticleEmmiter>();
 
 
+    // Add a new particle emmiter on the mouse's position
     leftMouseButtonClickedCallback = [&]()
     {
         const auto mouseNDC = MouseToNDC() / particleScaleFactor;
@@ -464,6 +482,7 @@ int main()
                                    trajectoryBDistribution));
     };
 
+    // Destory all particle emitters
     rightMouseButtonClickedCallback = [&]()
     {
         for (ParticleEmmiter& particleEmmiter : particleEmmiters)
@@ -477,14 +496,18 @@ int main()
     std::chrono::steady_clock::time_point timePoint1;
     std::chrono::steady_clock::time_point timePoint2;
 
+    // Elapsed time between frames
     std::chrono::duration<float> elapsedTime = std::chrono::duration<float>(0);
 
+    // Number of frames elapsed
     std::uint32_t elapsedFrames = 0;
 
+    // Time change between timePoint2 and timePoint1
     std::chrono::duration<float> delta;
 
-    constexpr auto fpsDisplayInterval = std::chrono::milliseconds(700);
 
+    // How often to display FPS
+    constexpr auto fpsDisplayInterval = std::chrono::milliseconds(700);
 
 
     while (glfwWindowShouldClose(glfwWindow) == false)
@@ -497,15 +520,17 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-
+        // Bind, update, and draw, particles
         auto iterator = particleEmmiters.begin();
 
         while(iterator != particleEmmiters.cend())
         {
             ParticleEmmiter& particleEmmiter = *iterator;
 
+            // If an emitter was destroyed...
             if (particleEmmiter.GetDestroyed() == true)
             {
+                // Remove from emitters list, and update iterator
                 iterator = particleEmmiters.erase(iterator);
                 continue;
             };
@@ -524,12 +549,11 @@ int main()
 
         timePoint2 = std::chrono::steady_clock::now();
 
-
         delta = timePoint2 - timePoint1;
         elapsedTime += std::chrono::duration<float>(delta);
         elapsedFrames++;
 
-
+        // If enough time has elapsed...
         if (elapsedTime > fpsDisplayInterval)
         {
             float fps = elapsedFrames / elapsedTime.count();
@@ -541,8 +565,10 @@ int main()
 
             sprintf_s(tileBuffer, sizeof(tileBuffer), "FPS: %.2f", fps);
 
+            // Display FPS
             glfwSetWindowTitle(glfwWindow, tileBuffer);
         };
+
     };
 
     glfwDestroyWindow(glfwWindow);

@@ -4,9 +4,17 @@
 #include <vector>
 #include <glad/glad.h>
 
+
+/// <summary>
+/// A class that holds a buffer of data that will be later associated with a vertex
+/// </summary>
 class VertexBuffer
 {
 private:
+
+    /// <summary>
+    /// An identifier used by the API
+    /// </summary>
     std::uint32_t _id = 0;
 
 
