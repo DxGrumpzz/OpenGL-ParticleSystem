@@ -223,9 +223,15 @@ public:
 
     void Update(const float deltaTime)
     {
-        for (std::size_t i = 0; i < _particles.size(); i++)
+        std::size_t i = 0;
+
+        auto iterator = _particles.begin();
+
+        // When using a for-loop and requesting the Emmiter to be destroyed, particles sometimes flicker.
+        // Using iterators fixes it, I'm guessing it's do to with indexing(?)
+        while (iterator != _particles.end())
         {
-            Particle& particle = _particles[i];
+            Particle& particle = *iterator;
 
             constexpr float rateIncrease = 0.01f;
 
@@ -257,7 +263,8 @@ public:
             {
                 if (_desrtoyRequested == true)
                 {
-                    _particles.erase(_particles.begin() + i);
+                    // After removing the particle, update the iterator and move to the next particle 
+                    iterator = _particles.erase(iterator);
                     continue;
                 };
 
@@ -269,6 +276,9 @@ public:
             };
 
             glBufferSubData(GL_ARRAY_BUFFER, sizeof(_globalParticleTransform) * i, sizeof(_globalParticleTransform), glm::value_ptr(transfromCopy));
+
+            iterator++;
+            i++;
         };
     };
 
@@ -480,32 +490,33 @@ int main()
     while (glfwWindowShouldClose(glfwWindow) == false)
     {
         timePoint1 = std::chrono::steady_clock::now();
-
+         
         glfwPollEvents();
 
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-        for (ParticleEmmiter& particleEmmiter : particleEmmiters)
+
+        auto iterator = particleEmmiters.begin();
+
+        while(iterator != particleEmmiters.cend())
         {
+            ParticleEmmiter& particleEmmiter = *iterator;
+
+            if (particleEmmiter.GetDestroyed() == true)
+            {
+                iterator = particleEmmiters.erase(iterator);
+                continue;
+            };
+
+
             particleEmmiter.Bind();
             particleEmmiter.Update(delta.count());
             particleEmmiter.Draw();
+
+            iterator++;
         };
-
-        if (particleEmmiters.empty() == false)
-        {
-            const auto removeRange = std::remove_if(particleEmmiters.begin(), particleEmmiters.end(),
-                                          [](ParticleEmmiter& particleEmmiter)
-            {
-                return particleEmmiter.GetDestroyed() == true;
-            });
-
-            if (removeRange != particleEmmiters.end())
-                particleEmmiters.erase(removeRange);
-        };
-
 
 
         glfwSwapBuffers(glfwWindow);
@@ -533,7 +544,6 @@ int main()
             glfwSetWindowTitle(glfwWindow, tileBuffer);
         };
     };
-
 
     glfwDestroyWindow(glfwWindow);
 };

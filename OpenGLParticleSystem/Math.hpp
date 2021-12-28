@@ -12,21 +12,21 @@ extern int WindowHeight;
 
 
 
-constexpr glm::vec2 CartesianToNDC(const glm::vec2& position)
+constexpr glm::vec2 CartesianToNDC(const glm::vec2& cartesianPosition)
 {
     return
     {
-        ((2.0f * position.x) / WindowWidth),
-        ((2.0f * position.y) / WindowHeight),
+        ((2.0f * cartesianPosition.x) / WindowWidth),
+        ((2.0f * cartesianPosition.y) / WindowHeight),
     };
 };
 
-constexpr glm::vec2 ScreenToNDC(const glm::vec2& position)
+constexpr glm::vec2 ScreenToNDC(const glm::vec2& screenPosition)
 {
     return
     {
-        ((2.0f * position.x) / WindowWidth) - 1.0f,
-        -(((2.0f * position.y) / WindowHeight) - 1.0f),
+        ((2.0f * screenPosition.x) / WindowWidth) - 1.0f,
+        -(((2.0f * screenPosition.y) / WindowHeight) - 1.0f),
     };
 };
 
