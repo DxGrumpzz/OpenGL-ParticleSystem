@@ -2,7 +2,7 @@
 
 
 in vec2 VertexShaderTextureCoordinateOutput;
-in float VertexShaderOpacityCoordinateOutput;
+in float VertexShaderOpacityOutput;
 
 uniform sampler2D Texture;
 
@@ -12,7 +12,7 @@ out vec4 OutputColour;
 void main()
 {
     // Subtract 1 from opacity so we subtract the correct quantity from the pixel's alpha
-    const float opacityCopy = 1.0f - clamp(VertexShaderOpacityCoordinateOutput, 0.0f, 1.0f);
+    const float opacityCopy = 1.0f - clamp(VertexShaderOpacityOutput, 0.0f, 1.0f);
 
     OutputColour = texture(Texture, VertexShaderTextureCoordinateOutput);
 

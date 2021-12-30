@@ -61,22 +61,22 @@ public:
 
     void SetFloat(const std::string& name, const float& value) const
     {
-        const std::uint32_t colourUniformLocation = GetUniformLocation(name);
-        glUniform1f(colourUniformLocation, value);
+        const std::uint32_t uniformLocation = GetUniformLocation(name);
+        glUniform1f(uniformLocation, value);
     };
 
     void SetMatrix4(const std::string& name, const glm::mat4& matrix) const
     {
-        const std::uint32_t colourUniformLocation = GetUniformLocation(name);
+        const std::uint32_t uniformLocation = GetUniformLocation(name);
 
-        glUniformMatrix4fv(colourUniformLocation, 1, false, glm::value_ptr(matrix));
+        glUniformMatrix4fv(uniformLocation, 1, false, glm::value_ptr(matrix));
     };
 
     void SetInt(const std::string& name, const int value) const
     {
-        const std::uint32_t colourUniformLocation = GetUniformLocation(name);
+        const std::uint32_t uniformLocation = GetUniformLocation(name);
 
-        glUniform1i(colourUniformLocation, value);
+        glUniform1i(uniformLocation, value);
     };
 
     void SetBool(const std::string& name, const bool value) const
@@ -118,7 +118,6 @@ private:
         int success = 0;
         glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &success);
 
-
         if (!success)
         {
             int bufferLength = 0;
@@ -134,6 +133,17 @@ private:
 
             __debugbreak();
         };
+
+        int InfoLogLength;
+        glGetShaderiv(vertexShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+        if (InfoLogLength > 0)
+        {
+            std::vector<char> VertexShaderErrorMessage(InfoLogLength + 1);
+            glGetShaderInfoLog(vertexShaderID, InfoLogLength, NULL, &VertexShaderErrorMessage[0]);
+            printf("%s\n", &VertexShaderErrorMessage[0]);
+        }
+
+
 
         return vertexShaderID;
     };
