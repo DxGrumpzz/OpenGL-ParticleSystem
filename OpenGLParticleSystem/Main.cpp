@@ -257,11 +257,14 @@ public:
     {
         // TODO: Move matrix math to shaders
 
-        _particleTransformVBO.get().Bind();
-        glm::mat4* particleTransformBuffer = reinterpret_cast<glm::mat4*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+        // _particleTransformVBO.get().Bind();
+        // glm::mat4* particleTransformBuffer = reinterpret_cast<glm::mat4*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
 
-        _particleOpacityVBO.get().Bind();
-        float* particleOpacityBuffer = reinterpret_cast<float*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+        // _particleOpacityVBO.get().Bind();
+        // float* particleOpacityBuffer = reinterpret_cast<float*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+
+        auto particleTransformBuffer = _particleTransformVBO.get().GetBuffer<glm::mat4>(GL::AccessType::WriteOnly);
+        auto particleOpacitiesBuffer = _particleOpacityVBO.get().GetBuffer<float>(GL::AccessType::WriteOnly);
 
         auto iterator = _particles.begin();
 
@@ -287,8 +290,9 @@ public:
             particle.Opacity -= particle.OpacityDecreaseRate * deltaTime;
 
             // Copy new opacity value into VBO
-            std::memcpy(particleOpacityBuffer + index, &particle.Opacity, sizeof(particle.Opacity));
-
+            // std::memcpy(particleOpacityBuffer + index, &particle.Opacity, sizeof(particle.Opacity));
+            std::memcpy(particleOpacitiesBuffer.get() + index, &particle.Opacity, sizeof(particle.Opacity));
+            
 
             const glm::vec2 ndcPosition = CartesianToNDC({ particle.Trajectory.x, particle.Trajectory.y }) / _particleScaleFactor;
 
@@ -304,7 +308,8 @@ public:
 
 
             // Copy particle-screen transform into VBO
-            std::memcpy(particleTransformBuffer + index, glm::value_ptr(screenTransfrom), sizeof(screenTransfrom));
+            // std::memcpy(particleTransformBuffer + index, glm::value_ptr(screenTransfrom), sizeof(screenTransfrom));
+            std::memcpy(particleTransformBuffer.get() + index, glm::value_ptr(screenTransfrom), sizeof(screenTransfrom));
 
 
             // If the particle is outside screen bounds..
@@ -328,11 +333,11 @@ public:
         };
 
 
-        _particleTransformVBO.get().Bind();
-        glUnmapBuffer(GL_ARRAY_BUFFER);
+        // _particleTransformVBO.get().Bind();
+        // glUnmapBuffer(GL_ARRAY_BUFFER);
 
-        _particleOpacityVBO.get().Bind();
-        glUnmapBuffer(GL_ARRAY_BUFFER);
+        // _particleOpacityVBO.get().Bind();
+        // glUnmapBuffer(GL_ARRAY_BUFFER);
     };
 
     void Draw() const
@@ -468,7 +473,6 @@ int main()
     opacityBufferLayout.AddElement<float>(2, 1, 1);
 
     particleVAO.AddBuffer(opacityVBO, opacityBufferLayout);
-
 
 
     // Particle trajectory

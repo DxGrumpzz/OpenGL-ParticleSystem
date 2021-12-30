@@ -134,17 +134,6 @@ private:
             __debugbreak();
         };
 
-        int InfoLogLength;
-        glGetShaderiv(vertexShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
-        if (InfoLogLength > 0)
-        {
-            std::vector<char> VertexShaderErrorMessage(InfoLogLength + 1);
-            glGetShaderInfoLog(vertexShaderID, InfoLogLength, NULL, &VertexShaderErrorMessage[0]);
-            printf("%s\n", &VertexShaderErrorMessage[0]);
-        }
-
-
-
         return vertexShaderID;
     };
 

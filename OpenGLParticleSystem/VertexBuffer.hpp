@@ -2,7 +2,10 @@
 
 #include <cstdint>
 #include <vector>
+#include <memory>
 #include <glad/glad.h>
+
+#include "GLUtilities.hpp"
 
 
 /// <summary>
@@ -10,6 +13,8 @@
 /// </summary>
 class VertexBuffer
 {
+    
+
 private:
 
     /// <summary>
@@ -22,6 +27,8 @@ public:
 
     VertexBuffer(const std::vector<std::byte>& bufferData)
     {
+
+
         glGenBuffers(1, &_id);
         glBindBuffer(GL_ARRAY_BUFFER, _id);
         glBufferData(GL_ARRAY_BUFFER, bufferData.size(), bufferData.data(), GL_STATIC_DRAW);
@@ -48,12 +55,42 @@ public:
 public:
 
 
+    /// <summary>
+    /// Returns a pointer to VBO buffer which can be written to and released automatically
+    /// </summary>
+    /// <typeparam name="T"> The type of data we're dealing with </typeparam>
+    /// <returns></returns>
+    template<typename T>
+    std::unique_ptr<T, std::function<void(T*)>> GetBuffer(const GL::AccessType accessType = GL::AccessType::ReadWrite) const
+    {
+        // The deleter function used by the unique_ptr to release the acquired memory.
+        // Can't get the unique_ptr deleter to behave with anything other than a lambda and an 'std::function'
+        const static auto deleter = [this](T* buffer)
+        {
+            // Make sure that the correct buffer is bound before we unmap
+            Bind();
+            glUnmapBuffer(GL_ARRAY_BUFFER);
+        };
+
+        // Ensure that this VBO is bound before we acquire the buffer
+        Bind();
+
+        const std::uint32_t apiAccessType = GL::AccessTypeToAPIEnum(accessType);
+
+        // Acquire a pointer to buffer
+        void* address = glMapBuffer(GL_ARRAY_BUFFER, apiAccessType);
+
+        // Convert the pointer into a unique_ptr
+        auto particleTransformBuffer = std::unique_ptr<T, std::function<void(T*)>>(static_cast<T*>(address), deleter);
+
+        return particleTransformBuffer;
+    };
+
 
     void Bind() const
     {
         glBindBuffer(GL_ARRAY_BUFFER, _id);
     };
-
 
 
 public:
@@ -62,5 +99,9 @@ public:
     {
         return _id;
     };
+
+
+private:
+
 
 };

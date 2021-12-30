@@ -12,12 +12,20 @@
 namespace GLUtilities
 {
 
+    enum class AccessType
+    {
+        ReadOnly = 0,
+        WriteOnly = 1,
+        ReadWrite = 2,
+    };
+
+
     /// <summary>
     /// Returns the size in bytes of a numeric type defined by the APi
     /// </summary>
     /// <param name="glTypeID"></param>
     /// <returns></returns>
-    constexpr std::size_t GetAPITypeSizeInBytes(const std::uint32_t glTypeID)
+    static constexpr std::size_t GetAPITypeSizeInBytes(const std::uint32_t glTypeID)
     {
         switch (glTypeID)
         {
@@ -39,7 +47,7 @@ namespace GLUtilities
     /// <param name="texturePath"> A path to the texture </param>
     /// <param name="keepBound"> Should the texture be bound after exiting this function</param>
     /// <returns></returns>
-    std::uint32_t GenerateTexture(const std::string_view& texturePath, bool keepBound = false)
+    static std::uint32_t GenerateTexture(const std::string_view& texturePath, bool keepBound = false)
     {
         // The the texture extends beyond it's boundaries, just repeat
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -99,6 +107,33 @@ namespace GLUtilities
 
 
         return textureID;
+    };
+
+
+    /// <summary>
+    /// Convert a AccessType to a GL access enumeration.
+    /// </summary>
+    /// <param name="accessType"> Access type </param>
+    /// <returns></returns>
+    static constexpr std::uint32_t AccessTypeToAPIEnum(const AccessType accessType)
+    {
+        switch (accessType)
+        {
+            case AccessType::ReadOnly:
+                return GL_READ_ONLY;
+
+            case AccessType::WriteOnly:
+                return GL_WRITE_ONLY;
+
+            case AccessType::ReadWrite:
+                return GL_READ_WRITE;
+
+            default:
+            {
+                assert(false && "Invalid AccessType value");
+                return -1;
+            };
+        };
     };
 
 };
