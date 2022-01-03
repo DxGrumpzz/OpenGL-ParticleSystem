@@ -87,7 +87,7 @@ public:
 
 public:
 
-    std::uint32_t GetProgramID()
+    std::uint32_t GetProgramID() const
     {
         return _programID;
     };
@@ -206,9 +206,12 @@ private:
             std::string error;
             error.resize(bufferLength);
 
-            glGetProgramInfoLog(programID, bufferLength, &bufferLength, error.data());
+            int bytesWritten = 0;
+            glGetProgramInfoLog(programID, bufferLength, &bytesWritten, error.data());
 
-            throw error;
+            std::cerr << "Program link error:\n" << error << "\n";
+
+            __debugbreak();
         };
 
         return programID;

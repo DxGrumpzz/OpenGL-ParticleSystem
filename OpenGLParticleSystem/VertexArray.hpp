@@ -43,7 +43,7 @@ public:
 
 
     /// <summary>
-    /// Adds a VBOB to this VAO
+    /// Adds a VBO to this VAO
     /// </summary>
     /// <param name="vertexBuffer"></param>
     /// <param name="bufferLayout"></param>
@@ -62,12 +62,25 @@ public:
 
         for (const auto& bufferLayoutElement : bufferLayoutElements)
         {
-            glVertexAttribPointer(bufferLayoutElement.StartingIndex,
-                                  bufferLayoutElement.ElementCount,
-                                  bufferLayoutElement.ApiTypeID,
-                                  bufferLayoutElement.Normalize,
-                                  bufferLayout.GetStride(),
-                                  reinterpret_cast<const void*>(offset));
+            if ((bufferLayoutElement.ApiTypeID == GL_INT) ||
+                (bufferLayoutElement.ApiTypeID == GL_UNSIGNED_INT))
+            {
+                glVertexAttribIPointer(bufferLayoutElement.StartingIndex,
+                                       bufferLayoutElement.ElementCount,
+                                       bufferLayoutElement.ApiTypeID,
+                                       bufferLayout.GetStride(),
+                                       reinterpret_cast<const void*>(offset));
+            }
+            else
+            {
+                glVertexAttribPointer(bufferLayoutElement.StartingIndex,
+                                      bufferLayoutElement.ElementCount,
+                                      bufferLayoutElement.ApiTypeID,
+                                      bufferLayoutElement.Normalize,
+                                      bufferLayout.GetStride(),
+                                      reinterpret_cast<const void*>(offset));
+            };
+
 
             glEnableVertexAttribArray(bufferLayoutElement.StartingIndex);
 

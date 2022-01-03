@@ -25,15 +25,6 @@ private:
 
 public:
 
-    VertexBuffer(const std::vector<std::byte>& bufferData)
-    {
-
-
-        glGenBuffers(1, &_id);
-        glBindBuffer(GL_ARRAY_BUFFER, _id);
-        glBufferData(GL_ARRAY_BUFFER, bufferData.size(), bufferData.data(), GL_STATIC_DRAW);
-    };
-
     VertexBuffer(const void* const bufferData, std::size_t bufferSizeInBytes)
     {
         glGenBuffers(1, &_id);

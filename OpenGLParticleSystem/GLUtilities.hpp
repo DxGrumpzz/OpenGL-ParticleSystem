@@ -34,6 +34,12 @@ namespace GLUtilities
                 return sizeof(float);
             };
 
+            case GL_INT:
+            case GL_UNSIGNED_INT:
+            {
+                return sizeof(std::uint32_t);
+            };
+
             default:
                 assert(false && "Unsupported type");
                 return -1;

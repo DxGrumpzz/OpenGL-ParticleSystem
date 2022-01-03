@@ -74,6 +74,15 @@ public:
         _stride += sizeof(float) * elementCount;
     };
 
+    template<>
+    void AddElement<std::uint32_t>(const std::uint32_t startingIndex, const std::uint32_t elementCount, const std::uint32_t divisor, const bool normalize)
+    {
+        _elements.emplace_back(startingIndex, elementCount, GL_UNSIGNED_INT, normalize, divisor);
+
+        // We calculate the stride per added vertex
+        _stride += sizeof(std::uint32_t) * elementCount;
+    };
+
 
 public:
 

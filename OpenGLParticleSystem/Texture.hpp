@@ -6,6 +6,7 @@
 
 #include "GLUtilities.hpp"
 
+
 /// <summary>
 /// A simple encapsulation of a GL texture 
 /// </summary>
@@ -17,9 +18,16 @@ private:
 
 public:
 
-    Texture(const std::string_view& texturePath)
+    /// <summary>
+    /// Generate a texture
+    /// </summary>
+    /// <param name="texturePath"> Path to texture resource </param>
+    /// <param name="keepBound"> Should the texture be kept bound after initializing </param>
+    Texture(const std::string_view& texturePath, bool keepBound = false)
     {
-        _textureID = GL::GenerateTexture(texturePath, true);
+        // For some reason, when generating more than 1 texture with 'keepBound=true'
+        // it causes massive FPS drops
+        _textureID = GL::GenerateTexture(texturePath, keepBound);
     };
 
 public:
