@@ -8,6 +8,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <fstream>
+#include <unordered_map>
 
 
 /// <summary>
@@ -16,6 +17,11 @@
 class ShaderProgram
 {
 private:
+
+    /// <summary>
+    /// A list of known Uniform locations
+    /// </summary>
+    mutable std::unordered_map<std::string, std::uint32_t> _uniformLocations;
 
     /// <summary>
     /// An identifier used by the API
@@ -100,7 +106,7 @@ private:
     /// </summary>
     /// <param name="filename"> The path to the vertex shader </param>
     /// <returns></returns>
-    std::uint32_t CompileVertexShader(const std::string& filename)
+    std::uint32_t CompileVertexShader(const std::string& filename) const
     {
         const std::string vertexShaderSource = ReadAllText(filename);
 
@@ -143,7 +149,7 @@ private:
     /// </summary>
     /// <param name="filename"> The path to the vertex shader </param>
     /// <returns></returns>
-    std::uint32_t CompileFragmentShader(const std::string& filename)
+    std::uint32_t CompileFragmentShader(const std::string& filename) const
     {
         const std::string fragmentShaderSource = ReadAllText(filename);
 
@@ -186,7 +192,7 @@ private:
     /// <param name="vertexShaderID"></param>
     /// <param name="fragmentShaderID"></param>
     /// <returns></returns>
-    std::uint32_t CreateAndLinkShaderProgram(const std::uint32_t vertexShaderID, const std::uint32_t fragmentShaderID)
+    std::uint32_t CreateAndLinkShaderProgram(const std::uint32_t vertexShaderID, const std::uint32_t fragmentShaderID) const
     {
         const std::uint32_t programID = glCreateProgram();
 
@@ -225,12 +231,32 @@ private:
     /// <returns></returns>
     std::uint32_t GetUniformLocation(const std::string& name) const
     {
-        const int uniformLocation = glGetUniformLocation(_programID, name.c_str());
+        // Check if uniform exists in cache
+        const auto result = _uniformLocations.find(name);
 
-        if (uniformLocation == -1)
+        int uniformLocation = -1;
+
+        // If name uniform isn't cached...
+        if (result == _uniformLocations.cend())
         {
-            std::cerr << "Uniform location error: Unable to find \"" << name << "\"\n";
-            __debugbreak();
+            // Find the uniform
+            uniformLocation = glGetUniformLocation(_programID, name.c_str());
+
+            if (uniformLocation == -1)
+            {
+                std::cerr << "Uniform location error: Unable to find \"" << name << "\"\n";
+                __debugbreak();
+            }
+            else
+            {
+                // Add to cache
+                _uniformLocations.insert(std::make_pair(name, static_cast<std::uint32_t>(uniformLocation)));
+            };
+        }
+        // If uniform was found...
+        else
+        {
+            uniformLocation = result->second;
         };
 
         return uniformLocation;
@@ -242,7 +268,7 @@ private:
     /// </summary>
     /// <param name="filename"> Path to sid file </param>
     /// <returns></returns>
-    std::string ReadAllText(const std::string& filename)
+    std::string ReadAllText(const std::string& filename) const
     {
         // Open the file at the end so we can easily find its length
         std::ifstream fileStream = std::ifstream(filename, std::ios::ate);

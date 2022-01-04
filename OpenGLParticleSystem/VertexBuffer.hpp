@@ -22,10 +22,12 @@ private:
     /// </summary>
     std::uint32_t _id = 0;
 
+    std::size_t _bufferSizeInBytes = 0;
 
 public:
 
-    VertexBuffer(const void* const bufferData, std::size_t bufferSizeInBytes)
+    VertexBuffer(const void* const bufferData, std::size_t bufferSizeInBytes) : 
+        _bufferSizeInBytes(bufferSizeInBytes)
     {
         glGenBuffers(1, &_id);
         glBindBuffer(GL_ARRAY_BUFFER, _id);
@@ -77,6 +79,21 @@ public:
         return particleTransformBuffer;
     };
 
+    template<typename T>
+    void Fill(const T& value)
+    {
+        constexpr auto valueSizeInBytes  = sizeof(value);
+
+        auto buffer = GetBuffer<T>(GL::AccessType::WriteOnly);
+
+        for (std::size_t i = 0; i < _bufferSizeInBytes / valueSizeInBytes; i++)
+        {
+            T& bufferValue = buffer.get()[i];
+
+            bufferValue = value;
+        };
+
+    };
 
     void Bind() const
     {

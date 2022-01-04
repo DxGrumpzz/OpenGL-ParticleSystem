@@ -86,12 +86,18 @@ GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_
         if ((mouseButton == GLFW_MOUSE_BUTTON_LEFT) &&
             (action == GLFW_PRESS))
         {
-            leftMouseButtonClickedCallback();
+            if (leftMouseButtonClickedCallback != nullptr)
+            {
+                leftMouseButtonClickedCallback();
+            };
         }
         else if ((mouseButton == GLFW_MOUSE_BUTTON_RIGHT) &&
                  (action == GLFW_PRESS))
         {
-            rightMouseButtonClickedCallback();
+            if (rightMouseButtonClickedCallback != nullptr)
+            {
+                rightMouseButtonClickedCallback();
+            };
         };
 
     });
@@ -267,7 +273,6 @@ public:
 
     void Update(const float deltaTime)
     {
-        // TODO: Move matrix math to shaders
         auto particleTransformBuffer = _particleTransformVBO.get().GetBuffer<glm::mat4>(GL::AccessType::WriteOnly);
         auto particleOpacitiesBuffer = _particleOpacityVBO.get().GetBuffer<float>(GL::AccessType::WriteOnly);
 
@@ -497,6 +502,7 @@ int main()
 
     VertexBuffer particleTextureUnits = VertexBuffer(buffer.data(), sizeof(buffer));
 
+
     BufferLayout particleTextureUnitsBufferLayout;
 
     particleTextureUnitsBufferLayout.AddElement<std::uint32_t>(4, 1, 1);
@@ -525,7 +531,6 @@ int main()
     const Texture particleTexture1 = Texture("Resources\\Particle1.png");
     const Texture particleTexture2 = Texture("Resources\\Particle2.png");
     const Texture particleTexture3 = Texture("Resources\\Particle3.png");
-
 
     const std::vector<const Texture*> particleTextures =
     {
@@ -617,8 +622,6 @@ int main()
                                        opacityDecreaseRateDistribution));
         };
     };
-
-
 
 
     std::chrono::steady_clock::time_point timePoint1;
