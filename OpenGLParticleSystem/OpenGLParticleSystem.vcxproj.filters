@@ -30,6 +30,9 @@
     <None Include="TexturedVertexShader.glsl">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="ParticleTransformShader.glsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="VertexBuffer.hpp">

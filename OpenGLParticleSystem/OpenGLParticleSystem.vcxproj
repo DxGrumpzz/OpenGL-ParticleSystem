@@ -162,6 +162,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="FragmentShader.glsl" />
+    <None Include="ParticleTransformShader.glsl" />
     <None Include="TexturedFragmentShader.glsl" />
     <None Include="TexturedVertexShader.glsl" />
     <None Include="VertexShader.glsl" />

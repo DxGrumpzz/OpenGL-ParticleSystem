@@ -11,6 +11,9 @@ layout(location = 4) in uint TextureUnit;
 layout(location = 5) in mat4 Transform;
 
 
+
+
+
 out vec2 VertexShaderTextureCoordinateOutput;
 out float VertexShaderOpacityOutput;
 flat out uint VertexShaderTextureUnitOutput;
@@ -24,6 +27,8 @@ void main()
     VertexShaderOpacityOutput = Opacity;
     
     VertexShaderTextureUnitOutput = TextureUnit;
+
+
 
     gl_Position = Transform * vec4(Position, 0.0f, 1.0f);
 };

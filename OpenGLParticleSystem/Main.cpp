@@ -27,32 +27,40 @@ std::function<void(void)> leftMouseButtonClickedCallback;
 std::function<void(void)> rightMouseButtonClickedCallback;
 
 
-void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
+void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * message, const void * userParam)
 {
-    switch (severity)
+    switch(severity)
     {
         case GL_DEBUG_SEVERITY_HIGH:
         case GL_DEBUG_SEVERITY_MEDIUM:
         case GL_DEBUG_SEVERITY_LOW:
         {
+            // If we're requesting to read an SSBO buffer, we're technically reading Video memory by sending through PCI/E,
+            // which is somewhat slow, so this error makes sense. However, we can usally ignore it if we know how SSBO works (Right?)
+            if(source == GL_DEBUG_SOURCE_API && 
+               type == GL_DEBUG_TYPE_PERFORMANCE)
+            {
+                break;
+            };
+
             std::cerr << message << "\n";
 
             __debugbreak();
             break;
         };
-
+        
         default:
             break;
     };
 };
 
-void GLFWErrorCallback(int, const char* err_str)
+void GLFWErrorCallback(int, const char * err_str)
 {
     std::cerr << "GLFW Error: " << err_str << "\n";
 };
 
 
-GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_view windowTitle)
+GLFWwindow * InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_view windowTitle)
 {
     glfwInit();
 
@@ -63,7 +71,7 @@ GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_
 
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow* glfwWindow = glfwCreateWindow(windowWidth, windowHeight, windowTitle.data(), nullptr, nullptr);
+    GLFWwindow * glfwWindow = glfwCreateWindow(windowWidth, windowHeight, windowTitle.data(), nullptr, nullptr);
 
     WindowWidth = windowWidth;
     WindowHeight = windowHeight;
@@ -73,7 +81,7 @@ GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_
     // Draw as fast as computerly possible
     glfwSwapInterval(0);
 
-    glfwSetFramebufferSizeCallback(glfwWindow, [](GLFWwindow* window, int width, int height)
+    glfwSetFramebufferSizeCallback(glfwWindow, [](GLFWwindow * window, int width, int height)
     {
         WindowWidth = width;
         WindowHeight = height;
@@ -81,20 +89,20 @@ GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_
         glViewport(0, 0, width, height);
     });
 
-    glfwSetMouseButtonCallback(glfwWindow, [](GLFWwindow*, int mouseButton, int action, int modifierBits)
+    glfwSetMouseButtonCallback(glfwWindow, [](GLFWwindow *, int mouseButton, int action, int modifierBits)
     {
-        if ((mouseButton == GLFW_MOUSE_BUTTON_LEFT) &&
-            (action == GLFW_PRESS))
+        if((mouseButton == GLFW_MOUSE_BUTTON_LEFT) &&
+           (action == GLFW_PRESS))
         {
-            if (leftMouseButtonClickedCallback != nullptr)
+            if(leftMouseButtonClickedCallback != nullptr)
             {
                 leftMouseButtonClickedCallback();
             };
         }
-        else if ((mouseButton == GLFW_MOUSE_BUTTON_RIGHT) &&
-                 (action == GLFW_PRESS))
+        else if((mouseButton == GLFW_MOUSE_BUTTON_RIGHT) &&
+                (action == GLFW_PRESS))
         {
-            if (rightMouseButtonClickedCallback != nullptr)
+            if(rightMouseButtonClickedCallback != nullptr)
             {
                 rightMouseButtonClickedCallback();
             };
@@ -103,7 +111,7 @@ GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_
     });
 
 
-    glfwSetCursorPosCallback(glfwWindow, [](GLFWwindow*, double mouseX, double mouseY)
+    glfwSetCursorPosCallback(glfwWindow, [](GLFWwindow *, double mouseX, double mouseY)
     {
         MouseX = static_cast<std::uint32_t>(mouseX);
         MouseY = static_cast<std::uint32_t>(mouseY);
@@ -127,7 +135,6 @@ void SetupOpenGL()
 };
 
 
-
 /// <summary>
 /// A simple parabolic trajectory function, returns the next 'y' position of a particle depending on it's 'x' position
 /// </summary>
@@ -137,7 +144,7 @@ void SetupOpenGL()
 /// <returns></returns>
 constexpr float ParticleTrajectoryFunction(const float particleX, float a = 1.0f, float b = 1.0f)
 {
-    return -a * (particleX * particleX) + (b * particleX);
+    return particleX * (((-a) * particleX) + b);
 };
 
 
@@ -189,7 +196,7 @@ private:
 
     std::reference_wrapper<const VertexArray> _particleVAO;
 
-    std::vector<const Texture*> _particleTextures;
+    std::vector<const Texture *> _particleTextures;
 
     std::reference_wrapper<const VertexBuffer> _particleVertexPositionVBO;
     std::reference_wrapper<const VertexBuffer> _particleTransformVBO;
@@ -206,18 +213,18 @@ public:
 
     ParticleEmmiter(const std::uint32_t numberOfParticles,
                     const float particleScaleFactor,
-                    const glm::mat4& particleEmitterTransform,
-                    const ShaderProgram& shaderProgram,
-                    const VertexArray& particleVAO,
-                    const std::vector<const Texture*>& textures,
-                    const VertexBuffer& particleVertexPositionVBO,
-                    const VertexBuffer& particleTransformVBO,
-                    const VertexBuffer& particleOpacityVBO,
-                    std::mt19937& rng,
-                    const std::uniform_real_distribution<float>& rateDistribution,
-                    const std::uniform_real_distribution<float>& trajectoryADistribution,
-                    const std::uniform_real_distribution<float>& trajectoryBDistribution,
-                    const std::uniform_real_distribution<float>& opacityDecreaseRateDistribution) :
+                    const glm::mat4 & particleEmitterTransform,
+                    const ShaderProgram & shaderProgram,
+                    const VertexArray & particleVAO,
+                    const std::vector<const Texture *> & textures,
+                    const VertexBuffer & particleVertexPositionVBO,
+                    const VertexBuffer & particleTransformVBO,
+                    const VertexBuffer & particleOpacityVBO,
+                    std::mt19937 & rng,
+                    const std::uniform_real_distribution<float> & rateDistribution,
+                    const std::uniform_real_distribution<float> & trajectoryADistribution,
+                    const std::uniform_real_distribution<float> & trajectoryBDistribution,
+                    const std::uniform_real_distribution<float> & opacityDecreaseRateDistribution) :
         _shaderProgram(shaderProgram),
         _rng(rng),
         _rateDistribution(rateDistribution),
@@ -236,8 +243,8 @@ public:
         _particles.resize(numberOfParticles);
 
 
-        for (std::size_t index = 0;
-             Particle & particle : _particles)
+        for(std::size_t index = 0;
+            Particle & particle : _particles)
         {
             InitializeParticleValues(particle, index);
             index++;
@@ -256,16 +263,16 @@ public:
 
         _particleVertexPositionVBO.get().Bind();
 
-        std::size_t index = 0;
-        for (const Texture* particleTexture : _particleTextures)
+        std::uint32_t index = 0;
+        for(const Texture * particleTexture : _particleTextures)
         {
-            particleTexture->Bind(static_cast<std::uint32_t>(index));
+            particleTexture->Bind(index);
 
             std::string uniformName;
             uniformName.reserve(16);
 
             uniformName.append("Textures[").append(std::to_string(index)).append("]");
-            _shaderProgram.get().SetInt(uniformName, static_cast<std::uint32_t>(index));
+            _shaderProgram.get().SetInt(uniformName, index);
 
             index++;
         };
@@ -281,26 +288,29 @@ public:
         // When using a for-loop and requesting the Emmiter to be destroyed, particles sometimes flicker.
         // Using iterators fixes it, I'm guessing it's do to with indexing(?)
         std::size_t index = 0;
-        while (iterator != _particles.cend())
+        while(iterator != _particles.cend())
         {
-            Particle& particle = *iterator;
+            Particle & particle = *iterator;
             constexpr float rateIncrease = 0.01f;
 
             // Negative
-            if (std::signbit(particle.Rate) == true)
+            if(std::signbit(particle.Rate) == true)
                 particle.Rate -= rateIncrease;
             // Positive
             else
                 particle.Rate += rateIncrease;
 
 
+            // Calculate next trajectory position
             particle.Trajectory.x += particle.Rate * deltaTime;
             particle.Trajectory.y = ParticleTrajectoryFunction(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
 
+            // Update opacity
             particle.Opacity -= particle.OpacityDecreaseRate * deltaTime;
 
+
             // Copy new opacity value into VBO
-            std::memcpy(particleOpacitiesBuffer.get() + index, &particle.Opacity, sizeof(particle.Opacity));
+            particleOpacitiesBuffer.get()[index] = particle.Opacity;
 
 
             const glm::vec2 ndcPosition = CartesianToNDC({ particle.Trajectory.x, particle.Trajectory.y }) / _particleScaleFactor;
@@ -318,15 +328,15 @@ public:
 
 
             // Copy particle-screen transform into VBO
-            std::memcpy(particleTransformBuffer.get() + index, glm::value_ptr(screenTransfrom), sizeof(screenTransfrom));
+            particleTransformBuffer.get()[index] = screenTransfrom;
 
 
             // If the particle is outside screen bounds..
-            if ((screenPosition.y < -1.0f) ||
-                // Or if the particle is practically inivsible
-                (particle.Opacity < 0.0f))
+            if((screenPosition.y < -1.0f) ||
+               // Or if the particle is practically inivsible
+               (particle.Opacity < 0.0f))
             {
-                if (_desrtoyRequested == true)
+                if(_desrtoyRequested == true)
                 {
                     // After removing the particle, update the iterator and move to the next particle 
                     iterator = _particles.erase(iterator);
@@ -354,12 +364,12 @@ public:
     };
 
 
-    glm::mat4& GetParticleEmmiterTransform()
+    glm::mat4 & GetParticleEmmiterTransform()
     {
         return _particleEmmiterTransform;
     };
 
-    glm::mat4& GetParticleTransform()
+    glm::mat4 & GetParticleTransform()
     {
         return _particleTransform;
     };
@@ -367,7 +377,7 @@ public:
 
     bool GetDestroyed() const
     {
-        if (_desrtoyRequested == true)
+        if(_desrtoyRequested == true)
         {
             return _particles.empty();
         };
@@ -378,7 +388,7 @@ public:
 
 private:
 
-    void InitializeParticleValues(Particle& particle, const std::size_t particleIndex)
+    void InitializeParticleValues(Particle & particle, const std::size_t particleIndex)
     {
         const float newTrajectoryA = _trajectoryADistribution(_rng.get());
 
@@ -415,6 +425,32 @@ private:
 
 
 
+
+/// <summary>
+/// Read all text inside a file
+/// </summary>
+/// <param name="filename"> Path to sid file </param>
+/// <returns></returns>
+static std::string ReadAllText(const std::string & filename)
+{
+    // Open the file at the end so we can easily find its length
+    std::ifstream fileStream = std::ifstream(filename, std::ios::ate);
+
+    std::string fileContents;
+
+    // Resize the buffer to fit content
+    fileContents.resize(fileStream.tellg());
+
+    fileStream.seekg(std::ios::beg);
+
+    // Read file contents into the buffer
+    fileStream.read(fileContents.data(), fileContents.size());
+
+    return fileContents;
+};
+
+
+
 int main()
 {
     constexpr std::uint32_t initialWindowWidth = 800;
@@ -422,9 +458,13 @@ int main()
 
     constexpr bool generateEmitters = true;
 
+    constexpr std::uint32_t particlesPerEmitter = 250;
+
+
     // Create a window
-    GLFWwindow* glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight,
-                                                  "OpenGL - Particle emmiter");
+    GLFWwindow * glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight,
+                                                   "OpenGL - Particle emmiter");
+
 
     // Setup "boilerplate" GL functionality
     SetupOpenGL();
@@ -470,10 +510,8 @@ int main()
 
 
 
-    constexpr std::uint32_t numberOfParticles = 250;
-
     // Particle opacity
-    VertexBuffer opacityVBO = VertexBuffer(nullptr, sizeof(float) * numberOfParticles);
+    VertexBuffer opacityVBO = VertexBuffer(nullptr, sizeof(float) * particlesPerEmitter, GL_DYNAMIC_DRAW);
 
     BufferLayout opacityBufferLayout;
 
@@ -484,7 +522,7 @@ int main()
 
 
     // Particle trajectory
-    VertexBuffer particleTrajectoryPositionVBO = VertexBuffer(nullptr, sizeof(glm::vec2) * numberOfParticles);
+    VertexBuffer particleTrajectoryPositionVBO = VertexBuffer(nullptr, sizeof(glm::vec2) * particlesPerEmitter);
 
     BufferLayout particleTrajectoryPositionBufferLayout;
 
@@ -493,15 +531,16 @@ int main()
     particleVAO.AddBuffer(particleTrajectoryPositionVBO, particleTrajectoryPositionBufferLayout);
 
 
-    std::array<std::uint32_t, numberOfParticles> buffer;
+    std::array<std::uint32_t, particlesPerEmitter> buffer;
 
-    for (std::size_t i = 0; i < buffer.size(); i++)
+    for(std::size_t i = 0; i < buffer.size(); i++)
     {
         buffer[i] = i % 3;
     };
 
-    VertexBuffer particleTextureUnits = VertexBuffer(buffer.data(), sizeof(buffer));
 
+    // Particle texture units
+    VertexBuffer particleTextureUnits = VertexBuffer(buffer.data(), sizeof(buffer));
 
     BufferLayout particleTextureUnitsBufferLayout;
 
@@ -516,7 +555,7 @@ int main()
 
     const glm::mat4 particleTransfrom = glm::scale(glm::mat4(1.0f), { particleScaleFactor, particleScaleFactor, particleScaleFactor });
 
-    VertexBuffer transformVBO = VertexBuffer(nullptr, sizeof(particleTransfrom) * numberOfParticles);
+    VertexBuffer transformVBO = VertexBuffer(nullptr, sizeof(particleTransfrom) * particlesPerEmitter, GL_DYNAMIC_DRAW);
 
     BufferLayout transformBufferlayout;
 
@@ -528,11 +567,134 @@ int main()
     particleVAO.AddBuffer(transformVBO, transformBufferlayout);
 
 
+
+    {
+        const std::uint32_t computeShaderID = glCreateShader(GL_COMPUTE_SHADER);
+
+        const auto computeShaderSource = ReadAllText("ParticleTransformShader.glsl");
+
+
+        const char * computeShaderSourcePointer = computeShaderSource.c_str();
+        const int computeShaderSourceLength = static_cast<int>(computeShaderSource.length());
+
+        glShaderSource(computeShaderID, 1, &computeShaderSourcePointer, &computeShaderSourceLength);
+        glCompileShader(computeShaderID);
+
+
+        // Ensure compilation is successful  
+        int success = 0;
+        glGetShaderiv(computeShaderID, GL_COMPILE_STATUS, &success);
+
+        if(!success)
+        {
+            int bufferLength = 0;
+            glGetShaderiv(computeShaderID, GL_INFO_LOG_LENGTH, &bufferLength);
+
+            std::string error;
+            error.resize(bufferLength);
+
+            glGetShaderInfoLog(computeShaderID, bufferLength, &bufferLength, error.data());
+
+
+            std::cerr << "Compute shader compilation error:\n" << error << "\n";
+
+            __debugbreak();
+        };
+
+
+        const std::uint32_t computeShaderProgramID = glCreateProgram();
+
+
+        glAttachShader(computeShaderProgramID, computeShaderID);
+        glLinkProgram(computeShaderProgramID);
+
+
+        // Ensure linkage is successful
+        glGetProgramiv(computeShaderProgramID, GL_LINK_STATUS, &success);
+
+        if(!success)
+        {
+            int bufferLength = 0;
+            glGetProgramiv(computeShaderProgramID, GL_INFO_LOG_LENGTH, &bufferLength);
+
+            std::string error;
+            error.resize(bufferLength);
+
+            int bytesWritten = 0;
+            glGetProgramInfoLog(computeShaderProgramID, bufferLength, &bytesWritten, error.data());
+
+            std::cerr << "Program link error:\n" << error << "\n";
+
+            __debugbreak();
+        };
+
+        glDeleteShader(computeShaderID);
+
+        glUseProgram(computeShaderProgramID);
+
+
+
+
+        constexpr std::uint32_t count = 100;
+
+        std::array<float, count> InValues;
+
+        for(std::size_t i = 0; i < count; i++)
+        {
+            InValues[i] = static_cast<float>(i+1);
+        };
+
+
+        std::uint32_t inputBuffer = 0;
+
+        glGenBuffers(1, &inputBuffer);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffer);
+
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * count, InValues.data(), GL_DYNAMIC_COPY);
+
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, inputBuffer);
+
+
+        std::uint32_t outputBuffer = 0;
+
+        glGenBuffers(1, &outputBuffer);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, outputBuffer);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * count, nullptr, GL_STATIC_DRAW);
+
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, outputBuffer);
+
+
+        glDispatchCompute(count, 1, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+
+        glDispatchCompute(count, 1, 1);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        /*
+        // You can re-bind the VBO to a different "buffer base", which means we can save some memory.
+        // However, this feels kinda yikes
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffer);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, inputBuffer);
+        */
+
+
+        std::array<float, count> OutValues;
+
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(float) * count, OutValues.data());
+
+        __debugbreak();
+
+    };
+
+
+
+
     const Texture particleTexture1 = Texture("Resources\\Particle1.png");
     const Texture particleTexture2 = Texture("Resources\\Particle2.png");
     const Texture particleTexture3 = Texture("Resources\\Particle3.png");
 
-    const std::vector<const Texture*> particleTextures =
+    const std::vector<const Texture *> particleTextures =
     {
         &particleTexture1,
         &particleTexture2,
@@ -560,14 +722,14 @@ int main()
 
 
 
-    if constexpr (generateEmitters == false)
+    if constexpr(generateEmitters == false)
     {
         // Add a new particle emmiter on the mouse's position
         leftMouseButtonClickedCallback = [&]()
         {
             const auto mouseNDC = MouseToNDC() / particleScaleFactor;
 
-            particleEmmiters.push_back(ParticleEmmiter(numberOfParticles,
+            particleEmmiters.push_back(ParticleEmmiter(particlesPerEmitter,
                                        particleScaleFactor,
                                        // Translate the original particle transform to Mouse position
                                        glm::translate(particleTransfrom, { mouseNDC.x, mouseNDC.y, 0 }),
@@ -588,7 +750,7 @@ int main()
         // Destory all particle emitters
         rightMouseButtonClickedCallback = [&]()
         {
-            for (ParticleEmmiter& particleEmmiter : particleEmmiters)
+            for(ParticleEmmiter & particleEmmiter : particleEmmiters)
             {
                 particleEmmiter.Destory();
             };
@@ -596,17 +758,17 @@ int main()
 
     }
 
-    if constexpr (generateEmitters == true)
+    if constexpr(generateEmitters == true)
     {
         const std::uniform_int_distribution particleXDistribution = std::uniform_int_distribution(0, WindowWidth);
         const std::uniform_int_distribution particleYDistribution = std::uniform_int_distribution(0, WindowHeight);
 
 
-        for (std::size_t i = 0; i < 130; i++)
+        for(std::size_t i = 0; i < 130; i++)
         {
             const auto emitterPosition = ScreenToNDC({ particleXDistribution(rng), particleYDistribution(rng) }) / particleScaleFactor;
 
-            particleEmmiters.push_back(ParticleEmmiter(numberOfParticles,
+            particleEmmiters.push_back(ParticleEmmiter(particlesPerEmitter,
                                        particleScaleFactor,
                                        glm::translate(particleTransfrom, { emitterPosition.x, emitterPosition.y, 0 }),
                                        texturedShaderProgram,
@@ -641,7 +803,7 @@ int main()
     constexpr auto fpsDisplayInterval = std::chrono::milliseconds(700);
 
 
-    while (glfwWindowShouldClose(glfwWindow) == false)
+    while(glfwWindowShouldClose(glfwWindow) == false)
     {
         timePoint1 = std::chrono::steady_clock::now();
 
@@ -655,12 +817,12 @@ int main()
         // Bind, update, and draw, particles
         auto iterator = particleEmmiters.begin();
 
-        while (iterator != particleEmmiters.cend())
+        while(iterator != particleEmmiters.cend())
         {
-            ParticleEmmiter& particleEmmiter = *iterator;
+            ParticleEmmiter & particleEmmiter = *iterator;
 
             // If an emitter was destroyed...
-            if (particleEmmiter.GetDestroyed() == true)
+            if(particleEmmiter.GetDestroyed() == true)
             {
                 // Remove from emitters list, and update iterator
                 iterator = particleEmmiters.erase(iterator);
@@ -687,7 +849,7 @@ int main()
         elapsedFrames++;
 
         // If enough time has elapsed...
-        if (elapsedTime > fpsDisplayInterval)
+        if(elapsedTime > fpsDisplayInterval)
         {
             float fps = elapsedFrames / elapsedTime.count();
 
@@ -697,7 +859,7 @@ int main()
             char tileBuffer[64] { 0 };
 
 
-            sprintf_s(tileBuffer, sizeof(tileBuffer), "Emmiters: %d, Particles: %d, FPS: %.2f", static_cast<int>(particleEmmiters.size()), static_cast<int>(particleEmmiters.size() * numberOfParticles), fps);
+            sprintf_s(tileBuffer, sizeof(tileBuffer), "Emmiters: %d, Particles: %d, FPS: %.2f", static_cast<int>(particleEmmiters.size()), static_cast<int>(particleEmmiters.size() * particlesPerEmitter), fps);
 
             // Display FPS
             glfwSetWindowTitle(glfwWindow, tileBuffer);

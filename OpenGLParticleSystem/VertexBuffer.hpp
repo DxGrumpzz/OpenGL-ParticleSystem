@@ -26,12 +26,12 @@ private:
 
 public:
 
-    VertexBuffer(const void* const bufferData, std::size_t bufferSizeInBytes) : 
+    VertexBuffer(const void* const bufferData, const std::size_t bufferSizeInBytes, const std::uint32_t usageType = GL_STATIC_DRAW) :
         _bufferSizeInBytes(bufferSizeInBytes)
     {
         glGenBuffers(1, &_id);
         glBindBuffer(GL_ARRAY_BUFFER, _id);
-        glBufferData(GL_ARRAY_BUFFER, bufferSizeInBytes, bufferData, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, bufferSizeInBytes, bufferData, usageType);
     };
 
 
