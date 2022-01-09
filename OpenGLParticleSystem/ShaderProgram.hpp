@@ -19,7 +19,7 @@ class ShaderProgram
 private:
 
     /// <summary>
-    /// A list of known Uniform locations
+    /// A list of known, cached, Uniform locations
     /// </summary>
     mutable std::unordered_map<std::string, std::uint32_t> _uniformLocations;
 

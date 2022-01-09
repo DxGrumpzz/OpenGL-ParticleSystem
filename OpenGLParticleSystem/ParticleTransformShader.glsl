@@ -1,8 +1,8 @@
 #version 430
 
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
+layout(local_size_x = 256) in;
 
 
 layout(std430, binding = 0) readonly buffer InTransformsBuffer
@@ -16,9 +16,13 @@ layout(std430, binding = 1) writeonly buffer OutTransformsBuffer
 };
 
 
+uniform float Value;
+
+
+
 void main()
 {
-    
-    OutValues[gl_GlobalInvocationID.x] = InValues[gl_GlobalInvocationID.x];
-
+    OutValues[gl_GlobalInvocationID.x] = InValues[gl_GlobalInvocationID.x] + Value;
 };
+
+

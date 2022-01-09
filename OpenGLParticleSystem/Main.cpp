@@ -7,6 +7,7 @@
 #include <chrono>
 #include <functional>
 #include <array>
+#include <numeric>
 
 #include "VertexBuffer.hpp"
 #include "VertexArray.hpp"
@@ -27,7 +28,7 @@ std::function<void(void)> leftMouseButtonClickedCallback;
 std::function<void(void)> rightMouseButtonClickedCallback;
 
 
-void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar * message, const void * userParam)
+void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 {
     switch(severity)
     {
@@ -36,8 +37,8 @@ void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum seve
         case GL_DEBUG_SEVERITY_LOW:
         {
             // If we're requesting to read an SSBO buffer, we're technically reading Video memory by sending through PCI/E,
-            // which is somewhat slow, so this error makes sense. However, we can usally ignore it if we know how SSBO works (Right?)
-            if(source == GL_DEBUG_SOURCE_API && 
+            // which is somewhat slow, so this warning makes sense. However, we can usally ignore it if we know how SSBO works (Right?)
+            if(source == GL_DEBUG_SOURCE_API &&
                type == GL_DEBUG_TYPE_PERFORMANCE)
             {
                 break;
@@ -48,19 +49,19 @@ void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum seve
             __debugbreak();
             break;
         };
-        
+
         default:
             break;
     };
 };
 
-void GLFWErrorCallback(int, const char * err_str)
+void GLFWErrorCallback(int, const char* err_str)
 {
     std::cerr << "GLFW Error: " << err_str << "\n";
 };
 
 
-GLFWwindow * InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_view windowTitle)
+GLFWwindow* InitializeGLFWWindow(int windowWidth, int windowHeight, std::string_view windowTitle)
 {
     glfwInit();
 
@@ -71,7 +72,7 @@ GLFWwindow * InitializeGLFWWindow(int windowWidth, int windowHeight, std::string
 
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow * glfwWindow = glfwCreateWindow(windowWidth, windowHeight, windowTitle.data(), nullptr, nullptr);
+    GLFWwindow* glfwWindow = glfwCreateWindow(windowWidth, windowHeight, windowTitle.data(), nullptr, nullptr);
 
     WindowWidth = windowWidth;
     WindowHeight = windowHeight;
@@ -81,7 +82,7 @@ GLFWwindow * InitializeGLFWWindow(int windowWidth, int windowHeight, std::string
     // Draw as fast as computerly possible
     glfwSwapInterval(0);
 
-    glfwSetFramebufferSizeCallback(glfwWindow, [](GLFWwindow * window, int width, int height)
+    glfwSetFramebufferSizeCallback(glfwWindow, [](GLFWwindow* window, int width, int height)
     {
         WindowWidth = width;
         WindowHeight = height;
@@ -89,7 +90,7 @@ GLFWwindow * InitializeGLFWWindow(int windowWidth, int windowHeight, std::string
         glViewport(0, 0, width, height);
     });
 
-    glfwSetMouseButtonCallback(glfwWindow, [](GLFWwindow *, int mouseButton, int action, int modifierBits)
+    glfwSetMouseButtonCallback(glfwWindow, [](GLFWwindow*, int mouseButton, int action, int modifierBits)
     {
         if((mouseButton == GLFW_MOUSE_BUTTON_LEFT) &&
            (action == GLFW_PRESS))
@@ -111,7 +112,7 @@ GLFWwindow * InitializeGLFWWindow(int windowWidth, int windowHeight, std::string
     });
 
 
-    glfwSetCursorPosCallback(glfwWindow, [](GLFWwindow *, double mouseX, double mouseY)
+    glfwSetCursorPosCallback(glfwWindow, [](GLFWwindow*, double mouseX, double mouseY)
     {
         MouseX = static_cast<std::uint32_t>(mouseX);
         MouseY = static_cast<std::uint32_t>(mouseY);
@@ -196,7 +197,7 @@ private:
 
     std::reference_wrapper<const VertexArray> _particleVAO;
 
-    std::vector<const Texture *> _particleTextures;
+    std::vector<const Texture*> _particleTextures;
 
     std::reference_wrapper<const VertexBuffer> _particleVertexPositionVBO;
     std::reference_wrapper<const VertexBuffer> _particleTransformVBO;
@@ -213,18 +214,18 @@ public:
 
     ParticleEmmiter(const std::uint32_t numberOfParticles,
                     const float particleScaleFactor,
-                    const glm::mat4 & particleEmitterTransform,
-                    const ShaderProgram & shaderProgram,
-                    const VertexArray & particleVAO,
-                    const std::vector<const Texture *> & textures,
-                    const VertexBuffer & particleVertexPositionVBO,
-                    const VertexBuffer & particleTransformVBO,
-                    const VertexBuffer & particleOpacityVBO,
-                    std::mt19937 & rng,
-                    const std::uniform_real_distribution<float> & rateDistribution,
-                    const std::uniform_real_distribution<float> & trajectoryADistribution,
-                    const std::uniform_real_distribution<float> & trajectoryBDistribution,
-                    const std::uniform_real_distribution<float> & opacityDecreaseRateDistribution) :
+                    const glm::mat4& particleEmitterTransform,
+                    const ShaderProgram& shaderProgram,
+                    const VertexArray& particleVAO,
+                    const std::vector<const Texture*>& textures,
+                    const VertexBuffer& particleVertexPositionVBO,
+                    const VertexBuffer& particleTransformVBO,
+                    const VertexBuffer& particleOpacityVBO,
+                    std::mt19937& rng,
+                    const std::uniform_real_distribution<float>& rateDistribution,
+                    const std::uniform_real_distribution<float>& trajectoryADistribution,
+                    const std::uniform_real_distribution<float>& trajectoryBDistribution,
+                    const std::uniform_real_distribution<float>& opacityDecreaseRateDistribution) :
         _shaderProgram(shaderProgram),
         _rng(rng),
         _rateDistribution(rateDistribution),
@@ -264,7 +265,7 @@ public:
         _particleVertexPositionVBO.get().Bind();
 
         std::uint32_t index = 0;
-        for(const Texture * particleTexture : _particleTextures)
+        for(const Texture* particleTexture : _particleTextures)
         {
             particleTexture->Bind(index);
 
@@ -280,8 +281,8 @@ public:
 
     void Update(const float deltaTime)
     {
-        auto particleTransformBuffer = _particleTransformVBO.get().GetBuffer<glm::mat4>(GL::AccessType::WriteOnly);
-        auto particleOpacitiesBuffer = _particleOpacityVBO.get().GetBuffer<float>(GL::AccessType::WriteOnly);
+        auto particleTransformBuffer = _particleTransformVBO.get().MapBuffer<glm::mat4>(GL::AccessType::WriteOnly);
+        auto particleOpacitiesBuffer = _particleOpacityVBO.get().MapBuffer<float>(GL::AccessType::WriteOnly);
 
         auto iterator = _particles.begin();
 
@@ -290,7 +291,7 @@ public:
         std::size_t index = 0;
         while(iterator != _particles.cend())
         {
-            Particle & particle = *iterator;
+            Particle& particle = *iterator;
             constexpr float rateIncrease = 0.01f;
 
             // Negative
@@ -364,12 +365,12 @@ public:
     };
 
 
-    glm::mat4 & GetParticleEmmiterTransform()
+    glm::mat4& GetParticleEmmiterTransform()
     {
         return _particleEmmiterTransform;
     };
 
-    glm::mat4 & GetParticleTransform()
+    glm::mat4& GetParticleTransform()
     {
         return _particleTransform;
     };
@@ -388,7 +389,7 @@ public:
 
 private:
 
-    void InitializeParticleValues(Particle & particle, const std::size_t particleIndex)
+    void InitializeParticleValues(Particle& particle, const std::size_t particleIndex)
     {
         const float newTrajectoryA = _trajectoryADistribution(_rng.get());
 
@@ -431,7 +432,7 @@ private:
 /// </summary>
 /// <param name="filename"> Path to sid file </param>
 /// <returns></returns>
-static std::string ReadAllText(const std::string & filename)
+static std::string ReadAllText(const std::string& filename)
 {
     // Open the file at the end so we can easily find its length
     std::ifstream fileStream = std::ifstream(filename, std::ios::ate);
@@ -450,6 +451,223 @@ static std::string ReadAllText(const std::string & filename)
 };
 
 
+class ComputeShaderProgram
+{
+private:
+
+    mutable std::unordered_map<std::string, std::uint32_t> _uniformLocations;
+
+    std::uint32_t _programID = 0;
+
+public:
+
+    ComputeShaderProgram(const std::string_view& shaderPath)
+    {
+        const std::uint32_t computeShaderID = CreateAndCompileShader(shaderPath);
+
+        _programID = CreateAndLinkProgram(computeShaderID);
+
+        Bind();
+    };
+
+
+public:
+
+    void Bind() const
+    {
+        glUseProgram(_programID);
+    };
+
+
+    template<typename T>
+    void SetUniformValue(const std::string_view& uniformName, const T& value) const
+    {
+        static_assert(false, "Unsupported type");
+    };
+
+    template<>
+    void SetUniformValue(const std::string_view& uniformName, const float& value) const
+    {
+        Bind();
+
+        const std::uint32_t uniformLocation = GetUniformLocation(uniformName.data());
+        glUniform1f(uniformLocation, value);
+    };
+
+
+    void Dispatch(const std::uint32_t dispatchGroupsX = 1, const std::uint32_t dispatchGroupsY = 1, const std::uint32_t dispatchGroupsZ = 1) const
+    {
+        Bind();
+
+        glDispatchCompute(dispatchGroupsX, dispatchGroupsY, dispatchGroupsZ);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    };
+
+public:
+
+    std::uint32_t GetProgramID()const
+    {
+        return _programID;
+    };
+
+
+private:
+
+    std::uint32_t CreateAndCompileShader(const std::string_view& shaderPath)
+    {
+        const std::uint32_t computeShaderID = glCreateShader(GL_COMPUTE_SHADER);
+
+        const auto computeShaderSource = ReadAllText(shaderPath.data());
+
+
+        const char* computeShaderSourcePointer = computeShaderSource.c_str();
+        const int computeShaderSourceLength = static_cast<int>(computeShaderSource.length());
+
+        glShaderSource(computeShaderID, 1, &computeShaderSourcePointer, &computeShaderSourceLength);
+        glCompileShader(computeShaderID);
+
+
+        // Ensure compilation is successful  
+        int success = 0;
+        glGetShaderiv(computeShaderID, GL_COMPILE_STATUS, &success);
+
+        if(!success)
+        {
+            int bufferLength = 0;
+            glGetShaderiv(computeShaderID, GL_INFO_LOG_LENGTH, &bufferLength);
+
+            std::string error;
+            error.resize(bufferLength);
+
+            glGetShaderInfoLog(computeShaderID, bufferLength, &bufferLength, error.data());
+
+
+            std::cerr << "Compute shader compilation error:\n" << error << "\n";
+
+            __debugbreak();
+        };
+
+        return computeShaderID;
+    };
+
+    std::uint32_t CreateAndLinkProgram(const std::uint32_t computeShaderID)
+    {
+        const std::uint32_t computeShaderProgramID = glCreateProgram();
+
+
+        glAttachShader(computeShaderProgramID, computeShaderID);
+        glLinkProgram(computeShaderProgramID);
+
+
+        // Ensure linkage is successful
+        int success = 0;
+        glGetProgramiv(computeShaderProgramID, GL_LINK_STATUS, &success);
+
+        if(!success)
+        {
+            int bufferLength = 0;
+            glGetProgramiv(computeShaderProgramID, GL_INFO_LOG_LENGTH, &bufferLength);
+
+            std::string error;
+            error.resize(bufferLength);
+
+            int bytesWritten = 0;
+            glGetProgramInfoLog(computeShaderProgramID, bufferLength, &bytesWritten, error.data());
+
+            std::cerr << "Program link error:\n" << error << "\n";
+
+            __debugbreak();
+        };
+
+        glDeleteShader(computeShaderID);
+
+        return computeShaderProgramID;
+    };
+
+
+    /// <summary>
+    /// Find the location of a uniform
+    /// </summary>
+    /// <param name="name"></param>
+    /// <returns></returns>
+    std::uint32_t GetUniformLocation(const std::string& name) const
+    {
+        // Check if uniform exists in cache
+        const auto result = _uniformLocations.find(name);
+
+        int uniformLocation = -1;
+
+        // If name uniform isn't cached...
+        if(result == _uniformLocations.cend())
+        {
+            // Find the uniform
+            uniformLocation = glGetUniformLocation(_programID, name.c_str());
+
+            if(uniformLocation == -1)
+            {
+                std::cerr << "Uniform location error: Unable to find \"" << name << "\"\n";
+                __debugbreak();
+            }
+            else
+            {
+                // Add to cache
+                _uniformLocations.insert(std::make_pair(name, static_cast<std::uint32_t>(uniformLocation)));
+            };
+        }
+        // If uniform was found...
+        else
+        {
+            uniformLocation = result->second;
+        };
+
+        return uniformLocation;
+    };
+
+};
+
+
+class ShaderStorageBuffer
+{
+private:
+
+    std::uint32_t _bufferId = 0;
+
+
+public:
+
+
+    ShaderStorageBuffer(const void* const bufferData, const std::size_t bufferSizeInBytes, const std::uint32_t bindIndex = 0, const std::uint32_t usageType = GL_STATIC_DRAW)
+    {
+        glGenBuffers(1, &_bufferId);
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, _bufferId);
+
+        glBufferData(GL_SHADER_STORAGE_BUFFER, bufferSizeInBytes, bufferData, usageType);
+
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindIndex, _bufferId);
+    };
+
+
+    ShaderStorageBuffer(const VertexBuffer&) = delete;
+
+
+public:
+
+    void Bind() const
+    {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, _bufferId);
+    };
+
+    template<typename T>
+    void GetBuffer(T* bufferData, const std::size_t numberOfElementsInBuffer)
+    {
+        Bind();
+
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(T) * numberOfElementsInBuffer, bufferData);
+    };
+
+};
+
 
 int main()
 {
@@ -462,13 +680,69 @@ int main()
 
 
     // Create a window
-    GLFWwindow * glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight,
-                                                   "OpenGL - Particle emmiter");
+    GLFWwindow* glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight,
+                                                  "OpenGL - Particle emmiter");
+
+
+
+    {
+        const ComputeShaderProgram computeShaderProgram = ComputeShaderProgram("ParticleTransformShader.glsl");
+
+        constexpr std::uint32_t count = 10000;
+
+        std::vector<float> InValues = std::vector<float>(count);
+
+
+        for(std::size_t i = 0; i < count; i++)
+        {
+            InValues[i] = static_cast<float>(i + 1);
+        };
+
+
+        ShaderStorageBuffer inputBuffer = ShaderStorageBuffer(InValues.data(), sizeof(float) * count, 0, GL_DYNAMIC_COPY);
+
+
+        ShaderStorageBuffer outputBuffer = ShaderStorageBuffer(nullptr, sizeof(float) * count, 1);
+
+
+        computeShaderProgram.SetUniformValue<float>("Value", 5.0f);
+
+        computeShaderProgram.Dispatch((count / 256) + 1);
+
+
+        std::vector<float> OutValues = std::vector<float>(count);
+
+        outputBuffer.GetBuffer(OutValues.data(), count);
+
+
+        const long double sum = std::accumulate(OutValues.begin(), OutValues.end(), 0.0f);
+
+
+        if(sum != 50052900.0)
+            __debugbreak();
+
+
+        int workGroupSizes[3] = { 0 };
+        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &workGroupSizes[0]);
+        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &workGroupSizes[1]);
+        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &workGroupSizes[2]);
+
+        int workGroupCounts[3] = { 0 };
+        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &workGroupCounts[0]);
+        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &workGroupCounts[1]);
+        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &workGroupCounts[2]);
+
+        int totalInvocation = 0;
+        glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &totalInvocation);
+
+        __debugbreak();
+
+    };
+
 
 
     // Setup "boilerplate" GL functionality
     SetupOpenGL();
-
 
 
     // The main VAO that will be used by the particle emmiter
@@ -568,125 +842,6 @@ int main()
 
 
 
-    {
-        const std::uint32_t computeShaderID = glCreateShader(GL_COMPUTE_SHADER);
-
-        const auto computeShaderSource = ReadAllText("ParticleTransformShader.glsl");
-
-
-        const char * computeShaderSourcePointer = computeShaderSource.c_str();
-        const int computeShaderSourceLength = static_cast<int>(computeShaderSource.length());
-
-        glShaderSource(computeShaderID, 1, &computeShaderSourcePointer, &computeShaderSourceLength);
-        glCompileShader(computeShaderID);
-
-
-        // Ensure compilation is successful  
-        int success = 0;
-        glGetShaderiv(computeShaderID, GL_COMPILE_STATUS, &success);
-
-        if(!success)
-        {
-            int bufferLength = 0;
-            glGetShaderiv(computeShaderID, GL_INFO_LOG_LENGTH, &bufferLength);
-
-            std::string error;
-            error.resize(bufferLength);
-
-            glGetShaderInfoLog(computeShaderID, bufferLength, &bufferLength, error.data());
-
-
-            std::cerr << "Compute shader compilation error:\n" << error << "\n";
-
-            __debugbreak();
-        };
-
-
-        const std::uint32_t computeShaderProgramID = glCreateProgram();
-
-
-        glAttachShader(computeShaderProgramID, computeShaderID);
-        glLinkProgram(computeShaderProgramID);
-
-
-        // Ensure linkage is successful
-        glGetProgramiv(computeShaderProgramID, GL_LINK_STATUS, &success);
-
-        if(!success)
-        {
-            int bufferLength = 0;
-            glGetProgramiv(computeShaderProgramID, GL_INFO_LOG_LENGTH, &bufferLength);
-
-            std::string error;
-            error.resize(bufferLength);
-
-            int bytesWritten = 0;
-            glGetProgramInfoLog(computeShaderProgramID, bufferLength, &bytesWritten, error.data());
-
-            std::cerr << "Program link error:\n" << error << "\n";
-
-            __debugbreak();
-        };
-
-        glDeleteShader(computeShaderID);
-
-        glUseProgram(computeShaderProgramID);
-
-
-
-
-        constexpr std::uint32_t count = 100;
-
-        std::array<float, count> InValues;
-
-        for(std::size_t i = 0; i < count; i++)
-        {
-            InValues[i] = static_cast<float>(i+1);
-        };
-
-
-        std::uint32_t inputBuffer = 0;
-
-        glGenBuffers(1, &inputBuffer);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffer);
-
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * count, InValues.data(), GL_DYNAMIC_COPY);
-
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, inputBuffer);
-
-
-        std::uint32_t outputBuffer = 0;
-
-        glGenBuffers(1, &outputBuffer);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, outputBuffer);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * count, nullptr, GL_STATIC_DRAW);
-
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, outputBuffer);
-
-
-        glDispatchCompute(count, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-
-        glDispatchCompute(count, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-        /*
-        // You can re-bind the VBO to a different "buffer base", which means we can save some memory.
-        // However, this feels kinda yikes
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffer);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, inputBuffer);
-        */
-
-
-        std::array<float, count> OutValues;
-
-        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(float) * count, OutValues.data());
-
-        __debugbreak();
-
-    };
-
 
 
 
@@ -694,7 +849,7 @@ int main()
     const Texture particleTexture2 = Texture("Resources\\Particle2.png");
     const Texture particleTexture3 = Texture("Resources\\Particle3.png");
 
-    const std::vector<const Texture *> particleTextures =
+    const std::vector<const Texture*> particleTextures =
     {
         &particleTexture1,
         &particleTexture2,
@@ -750,7 +905,7 @@ int main()
         // Destory all particle emitters
         rightMouseButtonClickedCallback = [&]()
         {
-            for(ParticleEmmiter & particleEmmiter : particleEmmiters)
+            for(ParticleEmmiter& particleEmmiter : particleEmmiters)
             {
                 particleEmmiter.Destory();
             };
@@ -819,7 +974,7 @@ int main()
 
         while(iterator != particleEmmiters.cend())
         {
-            ParticleEmmiter & particleEmmiter = *iterator;
+            ParticleEmmiter& particleEmmiter = *iterator;
 
             // If an emitter was destroyed...
             if(particleEmmiter.GetDestroyed() == true)

@@ -13,7 +13,7 @@
 /// </summary>
 class VertexBuffer
 {
-    
+
 
 private:
 
@@ -54,11 +54,11 @@ public:
     /// <typeparam name="T"> The type of data we're dealing with </typeparam>
     /// <returns></returns>
     template<typename T>
-    std::unique_ptr<T, std::function<void(T*)>> GetBuffer(const GL::AccessType accessType = GL::AccessType::ReadWrite) const
+    std::unique_ptr<T, std::function<void(T*)>> MapBuffer(const GL::AccessType accessType = GL::AccessType::ReadWrite) const
     {
         // The deleter function used by the unique_ptr to release the acquired memory.
         // Can't get the unique_ptr deleter to behave with anything other than a lambda and an 'std::function'
-        const static auto deleter = [this](T* buffer)
+        static auto deleter = [this](T* buffer)
         {
             // Make sure that the correct buffer is bound before we unmap
             Bind();
@@ -74,19 +74,19 @@ public:
         void* address = glMapBuffer(GL_ARRAY_BUFFER, apiAccessType);
 
         // Convert the pointer into a unique_ptr
-        auto particleTransformBuffer = std::unique_ptr<T, std::function<void(T*)>>(static_cast<T*>(address), deleter);
+        auto buffer = std::unique_ptr<T, std::function<void(T*)>>(std::bit_cast<T*>(address), deleter);
 
-        return particleTransformBuffer;
+        return buffer;
     };
 
     template<typename T>
     void Fill(const T& value)
     {
-        constexpr auto valueSizeInBytes  = sizeof(value);
+        constexpr auto valueSizeInBytes = sizeof(value);
 
-        auto buffer = GetBuffer<T>(GL::AccessType::WriteOnly);
+        auto buffer = MapBuffer<T>(GL::AccessType::WriteOnly);
 
-        for (std::size_t i = 0; i < _bufferSizeInBytes / valueSizeInBytes; i++)
+        for(std::size_t i = 0; i < _bufferSizeInBytes / valueSizeInBytes; i++)
         {
             T& bufferValue = buffer.get()[i];
 
@@ -107,9 +107,5 @@ public:
     {
         return _id;
     };
-
-
-private:
-
 
 };
