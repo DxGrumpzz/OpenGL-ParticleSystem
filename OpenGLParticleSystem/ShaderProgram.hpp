@@ -46,6 +46,11 @@ public:
         glDeleteShader(vertexShaderID);
     };
 
+    ~ShaderProgram()
+    {
+        if(_programID != 0)
+            glDeleteProgram(_programID);
+    };
 
     void Bind() const
     {
@@ -124,7 +129,7 @@ private:
         int success = 0;
         glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &success);
 
-        if (!success)
+        if(!success)
         {
             int bufferLength = 0;
             glGetShaderiv(vertexShaderID, GL_INFO_LOG_LENGTH, &bufferLength);
@@ -168,7 +173,7 @@ private:
         glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &success);
 
 
-        if (!success)
+        if(!success)
         {
             int bufferLength = 0;
             glGetShaderiv(fragmentShaderID, GL_INFO_LOG_LENGTH, &bufferLength);
@@ -204,7 +209,7 @@ private:
         int success = 0;
         glGetProgramiv(programID, GL_LINK_STATUS, &success);
 
-        if (!success)
+        if(!success)
         {
             int bufferLength = 0;
             glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &bufferLength);
@@ -237,12 +242,12 @@ private:
         int uniformLocation = -1;
 
         // If name uniform isn't cached...
-        if (result == _uniformLocations.cend())
+        if(result == _uniformLocations.cend())
         {
             // Find the uniform
             uniformLocation = glGetUniformLocation(_programID, name.c_str());
 
-            if (uniformLocation == -1)
+            if(uniformLocation == -1)
             {
                 std::cerr << "Uniform location error: Unable to find \"" << name << "\"\n";
                 __debugbreak();

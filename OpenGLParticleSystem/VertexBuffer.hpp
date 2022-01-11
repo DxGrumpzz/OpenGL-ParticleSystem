@@ -79,6 +79,7 @@ public:
         return buffer;
     };
 
+
     template<typename T>
     void Fill(const T& value)
     {
@@ -94,6 +95,7 @@ public:
         };
 
     };
+
 
     void Bind() const
     {

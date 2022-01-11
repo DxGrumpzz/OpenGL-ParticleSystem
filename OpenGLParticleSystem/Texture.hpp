@@ -25,9 +25,14 @@ public:
     /// <param name="keepBound"> Should the texture be kept bound after initializing </param>
     Texture(const std::string_view& texturePath, bool keepBound = false)
     {
-        // For some reason, when generating more than 1 texture with 'keepBound=true'
-        // it causes massive FPS drops
+        // For some reason, when generating more than 1 texture with 'keepBound=true', causes massive FPS drops
         _textureID = GL::GenerateTexture(texturePath, keepBound);
+    };
+
+    ~Texture()
+    {
+        if(_textureID != 0)
+            glDeleteTextures(1, &_textureID);
     };
 
 public:

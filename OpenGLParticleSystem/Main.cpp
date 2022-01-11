@@ -203,8 +203,14 @@ private:
     std::reference_wrapper<const VertexBuffer> _particleTransformVBO;
     std::reference_wrapper<const VertexBuffer> _particleOpacityVBO;
 
+public:
+
     std::vector<Particle> _particles;
 
+    std::vector<glm::mat4> ScreenTransforms;
+    std::vector<glm::vec2> NdcPositions;
+
+private:
     /// <summary>
     /// A boolean flag that indicates if this emitter is in the process of being destroyed
     /// </summary>
@@ -242,6 +248,8 @@ public:
         _particleOpacityVBO(particleOpacityVBO)
     {
         _particles.resize(numberOfParticles);
+        ScreenTransforms.resize(numberOfParticles);
+        NdcPositions.resize(numberOfParticles);
 
 
         for(std::size_t index = 0;
@@ -284,6 +292,7 @@ public:
         auto particleTransformBuffer = _particleTransformVBO.get().MapBuffer<glm::mat4>(GL::AccessType::WriteOnly);
         auto particleOpacitiesBuffer = _particleOpacityVBO.get().MapBuffer<float>(GL::AccessType::WriteOnly);
 
+
         auto iterator = _particles.begin();
 
         // When using a for-loop and requesting the Emmiter to be destroyed, particles sometimes flicker.
@@ -316,11 +325,15 @@ public:
 
             const glm::vec2 ndcPosition = CartesianToNDC({ particle.Trajectory.x, particle.Trajectory.y }) / _particleScaleFactor;
 
+            NdcPositions[index] = ndcPosition;
 
             // First apply the transform which translates the particle onto some screen position
             const glm::mat4 screenTransfrom = glm::translate(_particleEmmiterTransform, { ndcPosition.x , ndcPosition.y, 0.0f })
                 // Apply active particle transform
                 * particle.Transform;
+
+
+            ScreenTransforms[index] = screenTransfrom;
 
 
             // Get translation components of the transform. 
@@ -470,6 +483,12 @@ public:
         Bind();
     };
 
+    ~ComputeShaderProgram()
+    {
+        if(_programID != 0)
+            glDeleteProgram(_programID);
+    };
+
 
 public:
 
@@ -485,6 +504,7 @@ public:
         static_assert(false, "Unsupported type");
     };
 
+
     template<>
     void SetUniformValue(const std::string_view& uniformName, const float& value) const
     {
@@ -493,6 +513,29 @@ public:
         const std::uint32_t uniformLocation = GetUniformLocation(uniformName.data());
         glUniform1f(uniformLocation, value);
     };
+
+
+    template<>
+    void SetUniformValue(const std::string_view& uniformName, const glm::mat4& value) const
+    {
+        Bind();
+
+        const std::uint32_t uniformLocation = GetUniformLocation(uniformName.data());
+
+        glUniformMatrix4fv(uniformLocation, 1, false, glm::value_ptr(value));
+    };
+
+
+    template<>
+    void SetUniformValue(const std::string_view& uniformName, const std::uint32_t& value) const
+    {
+        Bind();
+
+        const std::uint32_t uniformLocation = GetUniformLocation(uniformName.data());
+
+        glUniform1ui(uniformLocation, value);
+    };
+
 
 
     void Dispatch(const std::uint32_t dispatchGroupsX = 1, const std::uint32_t dispatchGroupsY = 1, const std::uint32_t dispatchGroupsZ = 1) const
@@ -651,6 +694,15 @@ public:
     ShaderStorageBuffer(const VertexBuffer&) = delete;
 
 
+    ~ShaderStorageBuffer()
+    {
+        if(_bufferId != 0)
+            glDeleteBuffers(1, &_bufferId);
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    };
+
+
 public:
 
     void Bind() const
@@ -676,68 +728,13 @@ int main()
 
     constexpr bool generateEmitters = true;
 
-    constexpr std::uint32_t particlesPerEmitter = 250;
+    constexpr std::uint32_t particlesPerEmitter = 10;
 
 
     // Create a window
     GLFWwindow* glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight,
                                                   "OpenGL - Particle emmiter");
 
-
-
-    {
-        const ComputeShaderProgram computeShaderProgram = ComputeShaderProgram("ParticleTransformShader.glsl");
-
-        constexpr std::uint32_t count = 10000;
-
-        std::vector<float> InValues = std::vector<float>(count);
-
-
-        for(std::size_t i = 0; i < count; i++)
-        {
-            InValues[i] = static_cast<float>(i + 1);
-        };
-
-
-        ShaderStorageBuffer inputBuffer = ShaderStorageBuffer(InValues.data(), sizeof(float) * count, 0, GL_DYNAMIC_COPY);
-
-
-        ShaderStorageBuffer outputBuffer = ShaderStorageBuffer(nullptr, sizeof(float) * count, 1);
-
-
-        computeShaderProgram.SetUniformValue<float>("Value", 5.0f);
-
-        computeShaderProgram.Dispatch((count / 256) + 1);
-
-
-        std::vector<float> OutValues = std::vector<float>(count);
-
-        outputBuffer.GetBuffer(OutValues.data(), count);
-
-
-        const long double sum = std::accumulate(OutValues.begin(), OutValues.end(), 0.0f);
-
-
-        if(sum != 50052900.0)
-            __debugbreak();
-
-
-        int workGroupSizes[3] = { 0 };
-        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &workGroupSizes[0]);
-        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &workGroupSizes[1]);
-        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &workGroupSizes[2]);
-
-        int workGroupCounts[3] = { 0 };
-        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, &workGroupCounts[0]);
-        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &workGroupCounts[1]);
-        glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &workGroupCounts[2]);
-
-        int totalInvocation = 0;
-        glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &totalInvocation);
-
-        __debugbreak();
-
-    };
 
 
 
@@ -773,6 +770,7 @@ int main()
     VertexBuffer vertexPositionVBO = VertexBuffer(&vertexPositions, sizeof(vertexPositions));
 
     BufferLayout vertexPositionBufferlayout;
+    
 
     // Vertex position
     vertexPositionBufferlayout.AddElement<float>(0, 2);
@@ -787,6 +785,7 @@ int main()
     // Particle opacity
     VertexBuffer opacityVBO = VertexBuffer(nullptr, sizeof(float) * particlesPerEmitter, GL_DYNAMIC_DRAW);
 
+    
     BufferLayout opacityBufferLayout;
 
     opacityBufferLayout.AddElement<float>(2, 1, 1);
@@ -799,6 +798,8 @@ int main()
     VertexBuffer particleTrajectoryPositionVBO = VertexBuffer(nullptr, sizeof(glm::vec2) * particlesPerEmitter);
 
     BufferLayout particleTrajectoryPositionBufferLayout;
+
+    
 
     particleTrajectoryPositionBufferLayout.AddElement<float>(3, 2, 1);
 
@@ -822,7 +823,7 @@ int main()
 
     particleVAO.AddBuffer(particleTextureUnits, particleTextureUnitsBufferLayout);
 
-
+    
 
     // Particle transforms
     constexpr float particleScaleFactor = 0.05f;
@@ -843,11 +844,11 @@ int main()
 
 
 
-
-
     const Texture particleTexture1 = Texture("Resources\\Particle1.png");
     const Texture particleTexture2 = Texture("Resources\\Particle2.png");
     const Texture particleTexture3 = Texture("Resources\\Particle3.png");
+
+    
 
     const std::vector<const Texture*> particleTextures =
     {
@@ -860,7 +861,8 @@ int main()
     // A shader program that will be used by the Particle emitter
     const ShaderProgram texturedShaderProgram = ShaderProgram("TexturedVertexShader.glsl", "TexturedFragmentShader.glsl");
 
-
+    
+    
 
     std::mt19937 rng = std::mt19937(std::random_device {}());
 
@@ -912,16 +914,16 @@ int main()
         };
 
     }
-
-    if constexpr(generateEmitters == true)
+    else if constexpr(generateEmitters == true)
     {
-        const std::uniform_int_distribution particleXDistribution = std::uniform_int_distribution(0, WindowWidth);
-        const std::uniform_int_distribution particleYDistribution = std::uniform_int_distribution(0, WindowHeight);
+        // const std::uniform_int_distribution particleXDistribution = std::uniform_int_distribution(0, WindowWidth);
+        // const std::uniform_int_distribution particleYDistribution = std::uniform_int_distribution(0, WindowHeight);
 
 
-        for(std::size_t i = 0; i < 130; i++)
+        for(std::size_t i = 0; i < 1; i++)
         {
-            const auto emitterPosition = ScreenToNDC({ particleXDistribution(rng), particleYDistribution(rng) }) / particleScaleFactor;
+            // const auto emitterPosition = ScreenToNDC({ particleXDistribution(rng), particleYDistribution(rng) }) / particleScaleFactor;
+            const auto emitterPosition = ScreenToNDC({ 0, 0 }) / particleScaleFactor;
 
             particleEmmiters.push_back(ParticleEmmiter(particlesPerEmitter,
                                        particleScaleFactor,
@@ -939,6 +941,56 @@ int main()
                                        opacityDecreaseRateDistribution));
         };
     };
+
+
+    particleEmmiters[0].Bind();
+    particleEmmiters[0].Update(0.0001f);
+
+
+    {
+        struct alignas(16) ComputeShaderParticle
+        {
+            glm::mat4 Transform;
+            glm::vec2 Trajectory;
+        };
+
+
+
+        const ComputeShaderProgram computeShaderProgram = ComputeShaderProgram("ParticleTransformShader.glsl");
+
+        constexpr std::uint32_t count = particlesPerEmitter;
+
+        std::vector<ComputeShaderParticle> InValues = std::vector<ComputeShaderParticle>(count);
+
+
+        for(std::size_t i = 0; i < count; i++)
+        {
+            InValues[i].Transform = particleEmmiters[0]._particles[i].Transform;
+            InValues[i].Trajectory = particleEmmiters[0]._particles[i].Trajectory;
+        };
+
+
+        ShaderStorageBuffer inputBuffer = ShaderStorageBuffer(InValues.data(), sizeof(ComputeShaderParticle) * count, 0, GL_DYNAMIC_COPY);
+
+
+        ShaderStorageBuffer outputBuffer = ShaderStorageBuffer(nullptr, sizeof(glm::mat4) * count, 1);
+
+        computeShaderProgram.SetUniformValue<glm::mat4>("ParticleEmmiterTransform", particleTransfrom);
+        computeShaderProgram.SetUniformValue<std::uint32_t>("WindowWidth", WindowWidth);
+        computeShaderProgram.SetUniformValue<std::uint32_t>("WindowHeight", WindowHeight);
+        computeShaderProgram.SetUniformValue<float>("ParticleScaleFactor", particleScaleFactor);
+
+
+        computeShaderProgram.Dispatch((count / 256) + 1);
+
+        std::vector<glm::mat4> OutValues = std::vector<glm::mat4>(count);
+
+        outputBuffer.GetBuffer(OutValues.data(), count);
+
+
+        __debugbreak();
+    };
+
 
 
     std::chrono::steady_clock::time_point timePoint1;
@@ -968,7 +1020,6 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-
         // Bind, update, and draw, particles
         auto iterator = particleEmmiters.begin();
 
@@ -986,7 +1037,9 @@ int main()
 
             particleEmmiter.Bind();
             particleEmmiter.Update(delta.count());
+
             particleEmmiter.Draw();
+
 
             iterator++;
         };
@@ -994,8 +1047,6 @@ int main()
 
 
         glfwSwapBuffers(glfwWindow);
-
-
 
         timePoint2 = std::chrono::steady_clock::now();
 
