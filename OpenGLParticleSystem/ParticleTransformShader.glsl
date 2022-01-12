@@ -57,8 +57,8 @@ void main()
 
     const vec2 ndcPosition = CartesianToNDC(particle.Trajectory) / ParticleScaleFactor;
     
-    const mat4 screenTransfrom = Translate(ParticleEmmiterTransform, vec3(ndcPosition, 0.0f))
-                * particle.Transform;
+    const mat4 screenTransfrom = (Translate(ParticleEmmiterTransform, vec3(ndcPosition.x, ndcPosition.y, 0.0f))) * particle.Transform;
+
 
     OutParticleTransforms[gl_GlobalInvocationID.x] = screenTransfrom;
 };
