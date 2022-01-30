@@ -161,11 +161,9 @@
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="FragmentShader.glsl" />
     <None Include="ParticleTransformShader.glsl" />
-    <None Include="TexturedFragmentShader.glsl" />
-    <None Include="TexturedVertexShader.glsl" />
-    <None Include="VertexShader.glsl" />
+    <None Include="ParticleFragmentShader.glsl" />
+    <None Include="ParticleVertexShader.glsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BufferLayout.hpp" />

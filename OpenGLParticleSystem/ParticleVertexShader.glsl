@@ -4,11 +4,9 @@ layout(location = 0) in vec2 Position;
 layout(location = 1) in vec2 TextureCoordinate;
 layout(location = 2) in float Opacity;
 
-layout(location = 3) in vec2 ParticleTrajectoryPosition;
+layout(location = 3) in uint TextureUnit;
 
-layout(location = 4) in uint TextureUnit;
-
-layout(location = 5) in mat4 Transform;
+layout(location = 4) in mat4 Transform;
 
 
 
@@ -24,7 +22,8 @@ void main()
 {
     VertexShaderTextureCoordinateOutput = TextureCoordinate;
     
-    VertexShaderOpacityOutput = Opacity;
+    // VertexShaderOpacityOutput = Opacity;
+    VertexShaderOpacityOutput = 1.0f;
     
     VertexShaderTextureUnitOutput = TextureUnit;
 

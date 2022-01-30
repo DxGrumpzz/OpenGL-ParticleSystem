@@ -5,21 +5,30 @@ layout(local_size_x = 256) in;
 
 struct Particle
 {
-    mat4 Transform;
+    float TrajectoryA;
+    float TrajectoryB;
 
     vec2 Trajectory;
+    
+    mat4 Transform;
+    
+    float Rate;
 };
 
 
 layout(std430, binding = 0) readonly buffer InParticlesBuffer
 {
-
     Particle InParticles[];
 };
 
 layout(std430, binding = 1) writeonly buffer OutTransformsBuffer
 {
-    mat4 OutParticleTransforms[];
+    Particle OutParticles[];
+};
+
+layout(std430, binding = 2) writeonly buffer OutParticleScreenTransformsBuffer
+{
+    mat4 OutParticleScreenTransforms[];
 };
 
 
@@ -30,6 +39,8 @@ uniform uint WindowWidth;
 uniform uint WindowHeight;
 
 uniform float ParticleScaleFactor;
+
+uniform float DeltaTime;
 
 
 
@@ -50,15 +61,32 @@ mat4 Translate(mat4 inputMatrix, vec3 translationVector)
 };
 
 
+float ParticleTrajectoryFunction(float particleX, float a = 1.0f, float b = 1.0f)
+{
+    return particleX * (((-a) * particleX) + b);
+};
+
+
 
 void main()
 {
-    const Particle particle = InParticles[gl_GlobalInvocationID.x];
+    Particle particle = InParticles[gl_GlobalInvocationID.x];
+
+
+    // Calculate next trajectory position
+    particle.Trajectory.x += particle.Rate * DeltaTime;
+    particle.Trajectory.y = ParticleTrajectoryFunction(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
+
+    // Update opacity
+    // particle.Opacity -= particle.OpacityDecreaseRate * DeltaTime;
+
 
     const vec2 ndcPosition = CartesianToNDC(particle.Trajectory) / ParticleScaleFactor;
     
     const mat4 screenTransfrom = (Translate(ParticleEmmiterTransform, vec3(ndcPosition.x, ndcPosition.y, 0.0f))) * particle.Transform;
 
 
-    OutParticleTransforms[gl_GlobalInvocationID.x] = screenTransfrom;
+    OutParticles[gl_GlobalInvocationID.x] = particle;
+    OutParticleScreenTransforms[gl_GlobalInvocationID.x] = screenTransfrom;
+
 };

@@ -18,16 +18,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="FragmentShader.glsl">
+    <None Include="ParticleFragmentShader.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="VertexShader.glsl">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="TexturedFragmentShader.glsl">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="TexturedVertexShader.glsl">
+    <None Include="ParticleVertexShader.glsl">
       <Filter>Shaders</Filter>
     </None>
     <None Include="ParticleTransformShader.glsl">
