@@ -580,6 +580,7 @@ public:
         };
 
 
+        // Fill the initial input SSBO with particle data
         std::vector<ComputeShaderParticle> InValues = std::vector<ComputeShaderParticle>(_numberOfParticles);
 
         for(std::size_t i = 0; i < _numberOfParticles; i++)
@@ -597,7 +598,6 @@ public:
 
         _inputParticleBuffer.get().Bind();
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, InValues.size() * sizeof(ComputeShaderParticle), InValues.data());
-
     };
 
 
@@ -608,8 +608,11 @@ public:
         _computeShaderProgram.get().Bind();
 
         _computeShaderProgram.get().SetUniformValue<glm::mat4>("ParticleEmmiterTransform", _particleEmmiterTransform);
+        _computeShaderProgram.get().SetUniformValue<glm::mat4>("ParticleTransform", _particleTransform);
+
         _computeShaderProgram.get().SetUniformValue<std::uint32_t>("WindowWidth", WindowWidth);
         _computeShaderProgram.get().SetUniformValue<std::uint32_t>("WindowHeight", WindowHeight);
+
         _computeShaderProgram.get().SetUniformValue<float>("ParticleScaleFactor", _particleScaleFactor);
 
 
@@ -752,7 +755,7 @@ public:
     void Update2(const float deltaTime)
     {
         _computeShaderProgram.get().SetUniformValue<float>("DeltaTime", _particleScaleFactor);
-     
+
         _computeShaderProgram.get().Dispatch((_numberOfParticles / 256) + 1);
 
 
@@ -778,7 +781,7 @@ public:
         glVertexAttribDivisor(vertexTransformIndex + 3, 1);
 
 
-
+        // Copy the contents of the output SSBO into the intput SSBO
         glBindBuffer(GL_COPY_READ_BUFFER, _outputParticletBuffer.get().GetBufferID());
         glBindBuffer(GL_COPY_WRITE_BUFFER, _inputParticleBuffer.get().GetBufferID());
 
@@ -901,6 +904,7 @@ private:
     {
         const float newTrajectoryA = _trajectoryADistribution(_rng.get());
 
+
         // A very simple way of creating some trajectory variation
         const float newTrajectoryB = (particleIndex & 1) == 1 ?
             -_trajectoryBDistribution(_rng.get()) :
@@ -949,7 +953,7 @@ int main()
                                                   "OpenGL - Particle emmiter");
 
 
-
+    
 
     // Setup "boilerplate" GL functionality
     SetupOpenGL();
@@ -1072,7 +1076,10 @@ int main()
     std::mt19937 rng = std::mt19937(std::random_device {}());
 
     // These values are completley arbitrary
-    const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(10.1f, 30.0f);
+    // const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(10.1f, 30.0f);
+    // const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(0.01f, 0.015f);
+
+    const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(0.5f, 1.0f);
 
     const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.01f, 0.1f);
     const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(4.4f, 4.5f);
