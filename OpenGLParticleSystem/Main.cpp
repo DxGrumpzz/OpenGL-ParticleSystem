@@ -650,6 +650,9 @@ public:
 
         _computeShaderProgram.get().SetUniformValue<float>("ParticleScaleFactor", _particleScaleFactor);
 
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _inputParticleBuffer.GetBufferID());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _outputParticletBuffer.GetBufferID());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, _outputParticleScreenTransformBuffer.GetBufferID());
 
         _shaderProgram.get().Bind();
 
@@ -909,7 +912,7 @@ int main()
     constexpr std::uint32_t initialWindowWidth = 800;
     constexpr std::uint32_t initialWindowHeight = 600;
 
-    constexpr bool generateEmitters = false;
+    constexpr bool generateEmitters = true;
 
     constexpr std::uint32_t particlesPerEmitter = 250;
 
@@ -1095,7 +1098,7 @@ int main()
         const std::uniform_int_distribution particleXDistribution = std::uniform_int_distribution(0, WindowWidth);
         const std::uniform_int_distribution particleYDistribution = std::uniform_int_distribution(0, WindowHeight);
 
-        for(std::size_t i = 0; i < 2; i++)
+        for(std::size_t i = 0; i < 600; i++)
         {
             const auto emitterPosition = ScreenToNDC({ particleXDistribution(rng), particleYDistribution(rng) }) / particleScaleFactor;
 
