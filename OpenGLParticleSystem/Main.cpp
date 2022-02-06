@@ -400,15 +400,22 @@ public:
     };
 
 
+    ShaderStorageBuffer(ShaderStorageBuffer&& other) noexcept  : 
+        // Swap between this and the other buffer such that when we then call the destructor 
+        // we call on a "null" object, which is fine apparently 
+        _bufferId(other._bufferId)
+    {
+        // The "other" buffer is set to zero, because it will then be destroyed
+        other._bufferId = 0;
+    };
+
+
     ShaderStorageBuffer(const VertexBuffer&) = delete;
 
 
     ~ShaderStorageBuffer()
     {
-        if(_bufferId != 0)
-            glDeleteBuffers(1, &_bufferId);
-
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        Destroy();
     };
 
 
@@ -427,11 +434,38 @@ public:
         glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(T) * numberOfElementsInBuffer, bufferData);
     };
 
+
+    void Destroy() const
+    {
+        glDeleteBuffers(1, &_bufferId);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    };
+
+
 public:
 
     std::uint32_t GetBufferID() const
     {
         return _bufferId;
+    };
+
+
+public:
+
+    ShaderStorageBuffer& operator = (const ShaderStorageBuffer&) = delete;
+
+
+    ShaderStorageBuffer& operator = (ShaderStorageBuffer&& other) noexcept
+    {
+        if(this != &other)
+        {
+            std::swap(_bufferId, other._bufferId);
+
+            other.Destroy();
+            other._bufferId = 0;
+        };
+
+        return *this;
     };
 
 };
@@ -467,6 +501,7 @@ struct alignas(16) ComputeShaderParticle
 
     float Rate = 0.0f;
 };
+
 
 
 class ParticleEmmiter
@@ -509,23 +544,22 @@ private:
     std::reference_wrapper<const ComputeShaderProgram> _computeShaderProgram;
 
 
-    std::reference_wrapper<const ShaderStorageBuffer> _inputParticleBuffer;
-    std::reference_wrapper<const ShaderStorageBuffer> _outputParticletBuffer;
-    std::reference_wrapper<const ShaderStorageBuffer> _outputParticleScreenTransformBuffer;
+    // std::reference_wrapper<const ShaderStorageBuffer> _inputParticleBuffer;
+    // std::reference_wrapper<const ShaderStorageBuffer> _outputParticletBuffer;
+    // std::reference_wrapper<const ShaderStorageBuffer> _outputParticleScreenTransformBuffer;
 
+    ShaderStorageBuffer _inputParticleBuffer;
+    ShaderStorageBuffer _outputParticletBuffer;
+    ShaderStorageBuffer _outputParticleScreenTransformBuffer;
 
-public:
 
     std::vector<Particle> _particles;
 
-    std::vector<glm::mat4> ScreenTransforms;
-    std::vector<glm::vec2> NdcPositions;
-
-private:
     /// <summary>
     /// A boolean flag that indicates if this emitter is in the process of being destroyed
     /// </summary>
     bool _desrtoyRequested = false;
+
 
 public:
 
@@ -543,10 +577,10 @@ public:
                     const std::uniform_real_distribution<float>& trajectoryADistribution,
                     const std::uniform_real_distribution<float>& trajectoryBDistribution,
                     const std::uniform_real_distribution<float>& opacityDecreaseRateDistribution,
-                    const ComputeShaderProgram& computeShaderProgram,
-                    const ShaderStorageBuffer& inputBuffer,
-                    const ShaderStorageBuffer& outputBuffer,
-                    const ShaderStorageBuffer& outputParticleScreenTransformBuffer) :
+                    const ComputeShaderProgram& computeShaderProgram) :
+        // const ShaderStorageBuffer& inputBuffer,
+        // const ShaderStorageBuffer& outputBuffer,
+        // const ShaderStorageBuffer& outputParticleScreenTransformBuffer) :
         _numberOfParticles(numberOfParticles),
         _shaderProgram(shaderProgram),
         _rng(rng),
@@ -563,14 +597,14 @@ public:
         _particleTransformVBO(particleTransformVBO),
         _particleOpacityVBO(particleOpacityVBO),
         _computeShaderProgram(computeShaderProgram),
-        _inputParticleBuffer(inputBuffer),
-        _outputParticletBuffer(outputBuffer),
-        _outputParticleScreenTransformBuffer(outputParticleScreenTransformBuffer)
+        // _inputParticleBuffer(inputBuffer),
+        // _outputParticletBuffer(outputBuffer),
+        // _outputParticleScreenTransformBuffer(outputParticleScreenTransformBuffer)
+        _inputParticleBuffer(nullptr, sizeof(ComputeShaderParticle)* numberOfParticles, 0, GL_DYNAMIC_COPY),
+        _outputParticletBuffer(nullptr, sizeof(ComputeShaderParticle)* numberOfParticles, 1),
+        _outputParticleScreenTransformBuffer(nullptr, sizeof(glm::mat4)* numberOfParticles, 2),
+        _particles(numberOfParticles)
     {
-        _particles.resize(numberOfParticles);
-        ScreenTransforms.resize(numberOfParticles);
-        NdcPositions.resize(numberOfParticles);
-
 
         for(std::size_t index = 0;
             Particle & particle : _particles)
@@ -596,9 +630,10 @@ public:
         };
 
 
-        _inputParticleBuffer.get().Bind();
+        _inputParticleBuffer.Bind();
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, InValues.size() * sizeof(ComputeShaderParticle), InValues.data());
     };
+
 
 
 public:
@@ -637,6 +672,8 @@ public:
         };
     };
 
+
+    /*
     void Update(const float deltaTime)
     {
         for(Particle& particle : _particles)
@@ -717,8 +754,8 @@ public:
             ScreenTransforms[index] = screenTransfrom;
 
 
-            // Get translation components of the transform. 
-            // This works as long as we don't use non-uniform transformations 
+            // Get translation components of the transform.
+            // This works as long as we don't use non-uniform transformations
             const glm::vec3 screenPosition = glm::vec3(screenTransfrom[3]);
 
 
@@ -733,7 +770,7 @@ public:
             {
                 if(_desrtoyRequested == true)
                 {
-                    // After removing the particle, update the iterator and move to the next particle 
+                    // After removing the particle, update the iterator and move to the next particle
                     iterator = _particles.erase(iterator);
                     continue;
                 };
@@ -749,6 +786,7 @@ public:
 
         int _ = 0;
     };
+    */
 
 
 
@@ -760,7 +798,7 @@ public:
 
 
         // "Convert" the output SSBO to a VBO and bind to the vertex shader's transform vertex layout
-        glBindBuffer(GL_ARRAY_BUFFER, _outputParticleScreenTransformBuffer.get().GetBufferID());
+        glBindBuffer(GL_ARRAY_BUFFER, _outputParticleScreenTransformBuffer.GetBufferID());
 
         constexpr std::uint32_t vertexTransformIndex = 4;
 
@@ -782,84 +820,11 @@ public:
 
 
         // Copy the contents of the output SSBO into the intput SSBO
-        glBindBuffer(GL_COPY_READ_BUFFER, _outputParticletBuffer.get().GetBufferID());
-        glBindBuffer(GL_COPY_WRITE_BUFFER, _inputParticleBuffer.get().GetBufferID());
+        glBindBuffer(GL_COPY_READ_BUFFER, _outputParticletBuffer.GetBufferID());
+        glBindBuffer(GL_COPY_WRITE_BUFFER, _inputParticleBuffer.GetBufferID());
 
         glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, sizeof(ComputeShaderParticle) * _numberOfParticles);
-    };
 
-
-    void CalculateScreenTransforms(const float deltaTime)
-    {
-        auto iterator = _particles.begin();
-
-        // When using a for-loop and requesting the Emmiter to be destroyed, particles sometimes flicker.
-        // Using iterators fixes it, I'm guessing it's do to with indexing(?)
-        std::size_t index = 0;
-        while(iterator != _particles.cend())
-        {
-            Particle particle = *iterator;
-
-            constexpr float rateIncrease = 0.01f;
-
-            // Negative
-            if(std::signbit(particle.Rate) == true)
-                particle.Rate -= rateIncrease;
-            // Positive
-            else
-                particle.Rate += rateIncrease;
-
-
-            // Calculate next trajectory position
-            particle.Trajectory.x += particle.Rate * deltaTime;
-            particle.Trajectory.y = ParticleTrajectoryFunction(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
-
-            // Update opacity
-            particle.Opacity -= particle.OpacityDecreaseRate * deltaTime;
-
-
-
-            const glm::vec2 ndcPosition = CartesianToNDC({ particle.Trajectory.x, particle.Trajectory.y }) / _particleScaleFactor;
-
-            NdcPositions[index] = ndcPosition;
-
-            // First apply the transform which translates the particle onto some screen position
-            const glm::mat4 screenTransfrom = glm::translate(_particleEmmiterTransform, { ndcPosition.x , ndcPosition.y, 0.0f })
-                // Apply active particle transform
-                * particle.Transform;
-
-
-            ScreenTransforms[index] = screenTransfrom;
-
-
-            // Get translation components of the transform. 
-            // This works as long as we don't use non-uniform transformations 
-            const glm::vec3 screenPosition = glm::vec3(screenTransfrom[3]);
-
-
-
-            // If the particle is outside screen bounds..
-            if((screenPosition.y < -1.0f) ||
-               // Or if the particle is practically inivsible
-               (particle.Opacity < 0.0f))
-            {
-                if(_desrtoyRequested == true)
-                {
-                    // After removing the particle, update the iterator and move to the next particle 
-                    iterator = _particles.erase(iterator);
-                    continue;
-                };
-
-                // "Reset" the particle
-                InitializeParticleValues(particle, index);
-            };
-
-
-            index++;
-            iterator++;
-        };
-
-        int _ = 0;
     };
 
 
@@ -938,12 +903,13 @@ private:
 
 
 
+
 int main()
 {
     constexpr std::uint32_t initialWindowWidth = 800;
     constexpr std::uint32_t initialWindowHeight = 600;
 
-    constexpr bool generateEmitters = true;
+    constexpr bool generateEmitters = false;
 
     constexpr std::uint32_t particlesPerEmitter = 250;
 
@@ -952,8 +918,6 @@ int main()
     GLFWwindow* glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight,
                                                   "OpenGL - Particle emmiter");
 
-
-    
 
     // Setup "boilerplate" GL functionality
     SetupOpenGL();
@@ -1047,10 +1011,6 @@ int main()
     particleVAO.AddBuffer(transformVBO, transformBufferlayout);
 
 
-    const ShaderStorageBuffer inputParticleBuffer = ShaderStorageBuffer(nullptr, sizeof(ComputeShaderParticle) * particlesPerEmitter, 0, GL_DYNAMIC_COPY);
-    const ShaderStorageBuffer outputParticleBuffer = ShaderStorageBuffer(nullptr, sizeof(ComputeShaderParticle) * particlesPerEmitter, 1);
-    const ShaderStorageBuffer particleScreenTransformBuffer = ShaderStorageBuffer(nullptr, sizeof(glm::mat4) * particlesPerEmitter, 2);
-
 
 
     const Texture particleTexture1 = Texture("Resources\\Particle1.png");
@@ -1113,10 +1073,10 @@ int main()
                                           trajectoryADistribution,
                                           trajectoryBDistribution,
                                           opacityDecreaseRateDistribution,
-                                          computeShader,
-                                          inputParticleBuffer,
-                                          outputParticleBuffer,
-                                          particleScreenTransformBuffer);
+                                          computeShader);
+            // inputParticleBuffer,
+            // outputParticleBuffer,
+            // particleScreenTransformBuffer);
         };
 
 
@@ -1135,7 +1095,7 @@ int main()
         const std::uniform_int_distribution particleXDistribution = std::uniform_int_distribution(0, WindowWidth);
         const std::uniform_int_distribution particleYDistribution = std::uniform_int_distribution(0, WindowHeight);
 
-        for(std::size_t i = 0; i < 130; i++)
+        for(std::size_t i = 0; i < 2; i++)
         {
             const auto emitterPosition = ScreenToNDC({ particleXDistribution(rng), particleYDistribution(rng) }) / particleScaleFactor;
 
@@ -1153,10 +1113,10 @@ int main()
                                           trajectoryADistribution,
                                           trajectoryBDistribution,
                                           opacityDecreaseRateDistribution,
-                                          computeShader,
-                                          inputParticleBuffer,
-                                          outputParticleBuffer,
-                                          particleScreenTransformBuffer);
+                                          computeShader);
+            // inputParticleBuffer,
+            // outputParticleBuffer,
+            // particleScreenTransformBuffer);
         };
     };
 
