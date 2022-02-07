@@ -10,7 +10,7 @@ struct Particle
     float TrajectoryB;
 
     vec2 Trajectory;
-    
+
     mat4 Transform;
     
     float Rate;
@@ -91,26 +91,28 @@ float RandomNumberGenerator(vec2 uv, float seed, float min, float max)
 
 
 
-
-void InitializeParticleValues(inout Particle particle)
+void InitializeParticleValues(out Particle particle)
 {
-    const float newTrajectoryA = RandomNumberGenerator(particle.Trajectory, 0.318309f, 0.01f, 0.1f);
+    const vec2 uv = vec2(DeltaTime, 1.0f / DeltaTime);
 
+    // 1 / PI
+    const float rngSeed = DeltaTime;
+                          
+
+    const float newTrajectoryA = RandomNumberGenerator(uv, rngSeed, 0.01f, 0.1f);
 
     // A very simple way of creating some trajectory variation
     const float newTrajectoryB = (mod(gl_GlobalInvocationID.x, 2)) == 0 ?
-        -RandomNumberGenerator(particle.Trajectory, 0.318309f, 4.4f, 4.5f) :
-        RandomNumberGenerator(particle.Trajectory, 0.318309f, 4.4f, 4.5f);
-
-    // const float newOpacityDecreaseRate = _opacityDecreaseRateDistribution(_rng.get());
+        -RandomNumberGenerator(uv, rngSeed, 4.4f, 4.5f) :
+        RandomNumberGenerator(uv, rngSeed, 4.4f, 4.5f);
 
 
     // Correct the rate depending on trajectory direction
     const float newRate = sign(newTrajectoryB) == -1.0f ?
         // "Left" trajectory 
-        -RandomNumberGenerator(particle.Trajectory, 0.318309f, 0.25f, 0.5f) :
+        -RandomNumberGenerator(uv, rngSeed, 11.5f, 20.0f) :
         // "Right" trajectory
-        RandomNumberGenerator(particle.Trajectory, 0.318309f, 0.25f, 0.5f);
+        RandomNumberGenerator(uv, rngSeed, 11.5f, 20.0f);
 
 
 
@@ -120,15 +122,20 @@ void InitializeParticleValues(inout Particle particle)
     particle.Trajectory = vec2(0.0f);
     particle.Rate = newRate;
 
+    // particle.Opacity = 1.0f;
+    // particle.OpacityDecreaseRate = newOpacityDecreaseRate;
+
+
+    // Apply custom particle transform
     particle.Transform = ParticleTransform;
 };
 
 
-
 void main()
 {
-    Particle particle = InParticles[gl_GlobalInvocationID.x];
+    // TODO: Try to write the output particles directly into the input SSBO instead of copying on CPU
 
+    Particle particle = InParticles[gl_GlobalInvocationID.x];
 
     // Calculate next trajectory position
     particle.Trajectory.x += particle.Rate * DeltaTime;

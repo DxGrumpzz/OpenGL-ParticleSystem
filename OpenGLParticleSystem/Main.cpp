@@ -7,7 +7,7 @@
 #include <chrono>
 #include <functional>
 #include <array>
-#include <numeric>
+#include <numbers>
 
 #include "VertexBuffer.hpp"
 #include "VertexArray.hpp"
@@ -400,7 +400,7 @@ public:
     };
 
 
-    ShaderStorageBuffer(ShaderStorageBuffer&& other) noexcept  : 
+    ShaderStorageBuffer(ShaderStorageBuffer&& other) noexcept :
         // Swap between this and the other buffer such that when we then call the destructor 
         // we call on a "null" object, which is fine apparently 
         _bufferId(other._bufferId)
@@ -502,6 +502,26 @@ struct alignas(16) ComputeShaderParticle
     float Rate = 0.0f;
 };
 
+
+
+float RandomNumberGenerator(const glm::vec2& uv, float seed)
+{
+    const float fixedSeed = std::fabs(seed) + 1.0f;
+
+    const float x = glm::dot(uv, glm::vec2(12.9898, 78.233) * fixedSeed);
+
+    return glm::fract(glm::sin(x) * 43758.5453f);
+};
+
+float RandomNumberGenerator(const glm::vec2& uv, float seed, float min, float max)
+{
+    const float rng = RandomNumberGenerator(uv, seed);
+
+    // Map [0, 1] to [min, max] 
+    const float rngResult = min + rng * (max - min);
+
+    return rngResult;
+};
 
 
 class ParticleEmmiter
@@ -615,23 +635,24 @@ public:
 
 
         // Fill the initial input SSBO with particle data
-        std::vector<ComputeShaderParticle> InValues = std::vector<ComputeShaderParticle>(_numberOfParticles);
+        _inputParticleBuffer.Bind();
 
         for(std::size_t i = 0; i < _numberOfParticles; i++)
         {
-            InValues[i].TrajectoryA = _particles[i].TrajectoryA;
-            InValues[i].TrajectoryB = _particles[i].TrajectoryB;
+            const ComputeShaderParticle temp =
+            {
+                .TrajectoryA = _particles[i].TrajectoryA,
+                .TrajectoryB = _particles[i].TrajectoryB,
 
-            InValues[i].Transform = _particles[i].Transform;
+                .Trajectory = _particles[i].Trajectory,
 
-            InValues[i].Trajectory = _particles[i].Trajectory;
+                .Transform = _particles[i].Transform,
 
-            InValues[i].Rate = _particles[i].Rate;
+                .Rate = _particles[i].Rate,
+            };
+
+            glBufferSubData(GL_SHADER_STORAGE_BUFFER, sizeof(ComputeShaderParticle) * i, sizeof(ComputeShaderParticle), &temp);
         };
-
-
-        _inputParticleBuffer.Bind();
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, InValues.size() * sizeof(ComputeShaderParticle), InValues.data());
     };
 
 
@@ -641,7 +662,6 @@ public:
     void Bind() const
     {
         _computeShaderProgram.get().Bind();
-
         _computeShaderProgram.get().SetUniformValue<glm::mat4>("ParticleEmmiterTransform", _particleEmmiterTransform);
         _computeShaderProgram.get().SetUniformValue<glm::mat4>("ParticleTransform", _particleTransform);
 
@@ -795,7 +815,7 @@ public:
 
     void Update2(const float deltaTime)
     {
-        _computeShaderProgram.get().SetUniformValue<float>("DeltaTime", _particleScaleFactor);
+        _computeShaderProgram.get().SetUniformValue<float>("DeltaTime", deltaTime);
 
         _computeShaderProgram.get().Dispatch((_numberOfParticles / 256) + 1);
 
@@ -870,22 +890,35 @@ private:
 
     void InitializeParticleValues(Particle& particle, const std::size_t particleIndex)
     {
-        const float newTrajectoryA = _trajectoryADistribution(_rng.get());
+        // I have to use a "generator" here, if I don't then all the particles will be generated with values that are too close to each other
+        constexpr auto generateUV = []() -> glm::vec2
+        {
+            return { static_cast<float>(glfwGetTime()), 1.0f / static_cast<float>(glfwGetTime()) };
+        };
+
+        constexpr float rngSeed = 1.0f / std::numbers::pi_v<float>;
 
 
-        // A very simple way of creating some trajectory variation
+        const float newTrajectoryA = RandomNumberGenerator(generateUV(), rngSeed, 0.01f, 0.1f);
+
+
+        // A very simple way of creating some trajectory direction variation
         const float newTrajectoryB = (particleIndex & 1) == 1 ?
-            -_trajectoryBDistribution(_rng.get()) :
-            _trajectoryBDistribution(_rng.get());
+            -RandomNumberGenerator(generateUV(), rngSeed, 4.4f, 4.5f) :
+            RandomNumberGenerator(generateUV(), rngSeed, 4.4f, 4.5f);
 
-        const float newOpacityDecreaseRate = _opacityDecreaseRateDistribution(_rng.get());
 
-        // Correct the rate depending on trajectory
+
+        // const float newOpacityDecreaseRate = _opacityDecreaseRateDistribution(_rng.get());
+
+
+        // Correct the rate depending on trajectory direction
         const float newRate = std::signbit(newTrajectoryB) == true ?
             // "Left" trajectory 
-            -_rateDistribution(_rng.get()) :
+            -RandomNumberGenerator(generateUV(), rngSeed, 10.5f, 30.0f) :
             // "Right" trajectory
-            _rateDistribution(_rng.get());
+            RandomNumberGenerator(generateUV(), rngSeed, 10.5f, 30.0f);
+
 
 
         particle.TrajectoryA = newTrajectoryA;
@@ -895,7 +928,7 @@ private:
         particle.Rate = newRate;
 
         particle.Opacity = 1.0f;
-        particle.OpacityDecreaseRate = newOpacityDecreaseRate;
+        // particle.OpacityDecreaseRate = newOpacityDecreaseRate;
 
 
         // Apply custom particle transform
@@ -912,7 +945,9 @@ int main()
     constexpr std::uint32_t initialWindowWidth = 800;
     constexpr std::uint32_t initialWindowHeight = 600;
 
-    constexpr bool generateEmitters = true;
+    constexpr bool generateEmitters = false;
+    constexpr std::uint32_t emittersToGenerate = 20;
+
 
     constexpr std::uint32_t particlesPerEmitter = 250;
 
@@ -1039,10 +1074,7 @@ int main()
     std::mt19937 rng = std::mt19937(std::random_device {}());
 
     // These values are completley arbitrary
-    // const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(10.1f, 30.0f);
-    // const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(0.01f, 0.015f);
-
-    const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(0.5f, 1.0f);
+    const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(11.5f, 20.0f);
 
     const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.01f, 0.1f);
     const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(4.4f, 4.5f);
@@ -1098,7 +1130,7 @@ int main()
         const std::uniform_int_distribution particleXDistribution = std::uniform_int_distribution(0, WindowWidth);
         const std::uniform_int_distribution particleYDistribution = std::uniform_int_distribution(0, WindowHeight);
 
-        for(std::size_t i = 0; i < 600; i++)
+        for(std::size_t i = 0; i < emittersToGenerate; i++)
         {
             const auto emitterPosition = ScreenToNDC({ particleXDistribution(rng), particleYDistribution(rng) }) / particleScaleFactor;
 
@@ -1170,7 +1202,7 @@ int main()
 
             particleEmmiter.Bind();
             particleEmmiter.Update2(delta.count());
-
+            
             particleEmmiter.Draw();
 
 
