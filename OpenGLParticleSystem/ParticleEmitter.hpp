@@ -14,7 +14,7 @@
 #include "ComputeShaderProgram.hpp"
 
 
-
+// Defined in Main.cpp
 extern int WindowWidth;
 extern int WindowHeight;
 
@@ -22,23 +22,48 @@ extern int WindowHeight;
 
 struct Particle
 {
+    /// <summary>
+    /// The 'a' coefficient in a parabola
+    /// </summary>
     float TrajectoryA = 0.0f;
+
+    /// <summary>
+    /// The 'b' coefficient  in a parabola
+    /// </summary>
     float TrajectoryB = 0.0f;
 
-    glm::vec2 Trajectory = glm::vec2(1.0f);
+    /// <summary>
+    /// The position of this particle in it's trajectory path
+    /// </summary>
+    glm::vec2 Trajectory = glm::vec2(0.0f);
 
+    /// <summary>
+    /// The rate at which this particle will move
+    /// </summary>
     float Rate = 0.0f;
 
+    /// <summary>
+    /// A transform which will modify how this particle looks
+    /// </summary>
     glm::mat4 Transform = glm::mat4(1.0f);
 
     float Opacity = 0.0f;
 
+    /// <summary>
+    /// How fast will the particle's opacity decay
+    /// </summary>
     float OpacityDecreaseRate = 0.0f;
 
+    /// <summary>
+    /// This particle's texture
+    /// </summary>
     std::uint32_t TextureID = 0;
 };
 
 
+/// <summary>
+/// The bare-minimm particle data that is needed to send to the compute shader
+/// </summary>
 struct alignas(16) ComputeShaderParticle
 {
     float TrajectoryA = 0.0f;
@@ -53,17 +78,25 @@ struct alignas(16) ComputeShaderParticle
     float Opacity = 0.0f;
 
     float OpacityDecreaseRate = 0.0f;
-
 };
 
 
+/// <summary>
+/// An emitter of particles. 
+/// </summary>
 class ParticleEmmiter
 {
 
 private:
 
+    /// <summary>
+    /// The number of particles that will be drawn
+    /// </summary>
     std::uint32_t _numberOfParticles;
 
+    /// <summary>
+    /// A reference to the shader program which will draw the particles
+    /// </summary>
     std::reference_wrapper<const ShaderProgram> _particleShaderProgram;
 
 
@@ -81,23 +114,65 @@ private:
 
     float _particleScaleFactor;
 
+
+    /// <summary>
+    /// A VAO for the particles
+    /// </summary>
     std::reference_wrapper<const VertexArray> _particleVAO;
 
+
+    /// <summary>
+    /// A list of particle textures
+    /// </summary>
     std::vector<const Texture*> _particleTextures;
 
+
+    /// <summary>
+    /// A reference to VBO of particle vertex positions
+    /// </summary>
     std::reference_wrapper<const VertexBuffer> _particleVertexPositionVBO;
+
+    /// <summary>
+    /// A reference to a VBO of per-instance particle transforms
+    /// </summary>
     std::reference_wrapper<const VertexBuffer> _particleTransformVBO;
+
+
+    /// <summary>
+    /// A reference to a VBO of per-instance particle opacities
+    /// </summary>
     std::reference_wrapper<const VertexBuffer> _particleOpacityVBO;
 
+    /// <summary>
+    /// A reference to a particle transform compute shader
+    /// </summary>
     std::reference_wrapper<const ComputeShaderProgram> _computeShaderProgram;
 
 
+    /// <summary>
+    /// An input SSBO for particle data
+    /// </summary>
     ShaderStorageBuffer _inputParticleBuffer;
-    ShaderStorageBuffer _outputParticletBuffer;
+
+    /// <summary>
+    /// The resulting output data of particle data after the compute shader has run
+    /// </summary>
+    ShaderStorageBuffer _outputParticleBuffer;
+
+    /// <summary>
+    /// An output SSBO of particle screen transforms
+    /// </summary>
     ShaderStorageBuffer _outputParticleScreenTransformBuffer;
+
+    /// <summary>
+    /// An output SSBO of particle opacities
+    /// </summary>
     ShaderStorageBuffer _outputParticleOpacitiesBuffer;
 
 
+    /// <summary>
+    /// A list of particles
+    /// </summary>
     std::vector<Particle> _particles;
 
     /// <summary>
@@ -136,11 +211,13 @@ public:
         // _outputParticletBuffer(outputBuffer),
         // _outputParticleScreenTransformBuffer(outputParticleScreenTransformBuffer)
         _inputParticleBuffer(nullptr, sizeof(ComputeShaderParticle)* numberOfParticles, 0, GL_DYNAMIC_COPY),
-        _outputParticletBuffer(nullptr, sizeof(ComputeShaderParticle)* numberOfParticles, 1),
+        _outputParticleBuffer(nullptr, sizeof(ComputeShaderParticle)* numberOfParticles, 1),
         _outputParticleScreenTransformBuffer(nullptr, sizeof(glm::mat4)* numberOfParticles, 2),
         _outputParticleOpacitiesBuffer(nullptr, sizeof(float)* numberOfParticles, 3),
         _particles(numberOfParticles)
     {
+
+        // Initialize particles
         for(std::size_t index = 0;
             Particle & particle : _particles)
         {
@@ -179,6 +256,9 @@ public:
 
     void Bind() const
     {
+        _particleVAO.get().Bind();
+
+
         _computeShaderProgram.get().Bind();
 
         // Update compute shader uniforms
@@ -192,14 +272,13 @@ public:
 
         // Bind SSBOs to their respective binding points
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _inputParticleBuffer.GetBufferID());
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _outputParticletBuffer.GetBufferID());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _outputParticleBuffer.GetBufferID());
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, _outputParticleScreenTransformBuffer.GetBufferID());
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, _outputParticleOpacitiesBuffer.GetBufferID());
 
 
         _particleShaderProgram.get().Bind();
 
-        _particleVAO.get().Bind();
 
         _particleVertexPositionVBO.get().Bind();
 
@@ -217,123 +296,6 @@ public:
             index++;
         };
     };
-
-
-    /*
-    void Update(const float deltaTime)
-    {
-        for(Particle& particle : _particles)
-        {
-            constexpr float rateIncrease = 0.01f;
-
-            // Negative
-            if(std::signbit(particle.Rate) == true)
-                particle.Rate -= rateIncrease;
-            // Positive
-            else
-                particle.Rate += rateIncrease;
-
-
-            // Calculate next trajectory position
-            particle.Trajectory.x += particle.Rate * deltaTime;
-            particle.Trajectory.y = ParticleTrajectoryFunction(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
-
-            // Update opacity
-            particle.Opacity -= particle.OpacityDecreaseRate * deltaTime;
-        };
-
-
-
-        std::vector<ComputeShaderParticle> InValues = std::vector<ComputeShaderParticle>(_numberOfParticles);
-
-        for(std::size_t i = 0; i < _numberOfParticles; i++)
-        {
-            InValues[i].Transform = _particles[i].Transform;
-            // InValues[i].Trajectory = _particles[i].Trajectory;
-        };
-
-        _inputParticleBuffer.get().Bind();
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, InValues.size() * sizeof(ComputeShaderParticle), InValues.data());
-        // _inputBuffer.get().GetBuffer(InValues.data(), _numberOfParticles);
-
-        _computeShaderProgram.get().Dispatch((_numberOfParticles / 256) + 1);
-
-
-        std::vector<glm::mat4> OutValues = std::vector<glm::mat4>(_numberOfParticles);
-
-        _outputParticleScreenTransformBuffer.get().GetBuffer(OutValues.data(), _numberOfParticles);
-
-
-
-        _shaderProgram.get().Bind();
-
-
-        auto particleTransformBuffer = _particleTransformVBO.get().MapBuffer<glm::mat4>(GL::AccessType::WriteOnly);
-        auto particleOpacitiesBuffer = _particleOpacityVBO.get().MapBuffer<float>(GL::AccessType::WriteOnly);
-
-
-        auto iterator = _particles.begin();
-
-        // When using a for-loop and requesting the Emmiter to be destroyed, particles sometimes flicker.
-        // Using iterators fixes it, I'm guessing it's do to with indexing(?)
-        std::size_t index = 0;
-        while(iterator != _particles.cend())
-        {
-            Particle& particle = *iterator;
-
-            // Copy new opacity value into VBO
-            particleOpacitiesBuffer.get()[index] = particle.Opacity;
-
-
-            const glm::vec2 ndcPosition = CartesianToNDC({ particle.Trajectory.x, particle.Trajectory.y }) / _particleScaleFactor;
-
-            NdcPositions[index] = ndcPosition;
-
-            // First apply the transform which translates the particle onto some screen position
-            // const glm::mat4 screenTransfrom = glm::translate(_particleEmmiterTransform, { ndcPosition.x , ndcPosition.y, 0.0f })
-            //     // Apply active particle transform
-            //     * particle.Transform;
-
-
-            const glm::mat4& screenTransfrom = OutValues[index];
-
-            ScreenTransforms[index] = screenTransfrom;
-
-
-            // Get translation components of the transform.
-            // This works as long as we don't use non-uniform transformations
-            const glm::vec3 screenPosition = glm::vec3(screenTransfrom[3]);
-
-
-            // Copy particle-screen transform into VBO
-            particleTransformBuffer.get()[index] = screenTransfrom;
-
-
-            // If the particle is outside screen bounds..
-            if((screenPosition.y < -1.0f) ||
-               // Or if the particle is practically inivsible
-               (particle.Opacity < 0.0f))
-            {
-                if(_desrtoyRequested == true)
-                {
-                    // After removing the particle, update the iterator and move to the next particle
-                    iterator = _particles.erase(iterator);
-                    continue;
-                };
-
-                // "Reset" the particle
-                InitializeParticleValues(particle, index);
-            };
-
-
-            index++;
-            iterator++;
-        };
-
-        int _ = 0;
-    };
-    */
-
 
 
     void Update(const float deltaTime)
@@ -375,13 +337,11 @@ public:
 
 
         // Copy the contents of the output SSBO into the intput SSBO
-        glBindBuffer(GL_COPY_READ_BUFFER, _outputParticletBuffer.GetBufferID());
+        glBindBuffer(GL_COPY_READ_BUFFER, _outputParticleBuffer.GetBufferID());
         glBindBuffer(GL_COPY_WRITE_BUFFER, _inputParticleBuffer.GetBufferID());
 
         glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, sizeof(ComputeShaderParticle) * _numberOfParticles);
-
     };
-
 
 
     void Draw() const
@@ -389,6 +349,7 @@ public:
         _particleShaderProgram.get().Bind();
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, static_cast<std::uint32_t>(_particles.size()));
     };
+
 
     void Destory()
     {
@@ -420,8 +381,16 @@ public:
 
 private:
 
+    /// <summary>
+    /// Initialize a particle with some random data
+    /// </summary>
+    /// <param name="particle"></param>
+    /// <param name="particleIndex"></param>
     void InitializeParticleValues(Particle& particle, const std::size_t particleIndex)
     {
+        // I am not using C++'s random library because I want to match the expected results in GLSL
+
+
         // I have to use a "generator" here, if I don't then all the particles will be generated with values that are too close to each other
         constexpr auto generateUV = []() -> glm::vec2
         {
@@ -465,4 +434,3 @@ private:
     };
 
 };
-

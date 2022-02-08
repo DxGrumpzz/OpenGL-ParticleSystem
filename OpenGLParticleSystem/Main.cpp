@@ -34,13 +34,6 @@ void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum seve
         case GL_DEBUG_SEVERITY_MEDIUM:
         case GL_DEBUG_SEVERITY_LOW:
         {
-            if(source == GL_DEBUG_SOURCE_API &&
-               type == GL_DEBUG_TYPE_PERFORMANCE)
-            {
-                std::cerr << message << "\n";
-                break;
-            };
-
             std::cerr << message << "\n";
 
             __debugbreak();
@@ -133,11 +126,9 @@ void SetupOpenGL()
 };
 
 
-
-
-
 int main()
 {
+    
     constexpr std::uint32_t initialWindowWidth = 800;
     constexpr std::uint32_t initialWindowHeight = 600;
 
@@ -151,6 +142,7 @@ int main()
     // Create a window
     GLFWwindow* glfwWindow = InitializeGLFWWindow(initialWindowWidth, initialWindowHeight,
                                                   "OpenGL - Particle emmiter");
+
 
 
     // Setup "boilerplate" GL functionality
@@ -267,15 +259,6 @@ int main()
     const ComputeShaderProgram computeShader = ComputeShaderProgram("ParticleTransformShader.glsl");
 
 
-    std::mt19937 rng = std::mt19937(std::random_device {}());
-
-    // These values are completley arbitrary
-    const std::uniform_real_distribution rateDistribution = std::uniform_real_distribution<float>(11.5f, 20.0f);
-
-    const std::uniform_real_distribution trajectoryADistribution = std::uniform_real_distribution<float>(0.01f, 0.1f);
-    const std::uniform_real_distribution trajectoryBDistribution = std::uniform_real_distribution<float>(4.4f, 4.5f);
-
-    const std::uniform_real_distribution opacityDecreaseRateDistribution = std::uniform_real_distribution<float>(0.1f, 0.4f);
 
     // A list of particle emmiters
     std::vector<ParticleEmmiter> particleEmmiters = std::vector<ParticleEmmiter>();
@@ -322,6 +305,8 @@ int main()
     }
     else if constexpr(generateEmitters == true)
     {
+        std::mt19937 rng = std::mt19937(std::random_device {}());
+
         const std::uniform_int_distribution particleXDistribution = std::uniform_int_distribution(0, WindowWidth);
         const std::uniform_int_distribution particleYDistribution = std::uniform_int_distribution(0, WindowHeight);
 

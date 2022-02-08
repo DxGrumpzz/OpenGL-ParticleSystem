@@ -15,7 +15,6 @@
 class VertexBuffer
 {
 
-
 private:
 
     /// <summary>
@@ -23,6 +22,9 @@ private:
     /// </summary>
     std::uint32_t _id = 0;
 
+    /// <summary>
+    /// The size of this buffer in bytes
+    /// </summary>
     std::size_t _bufferSizeInBytes = 0;
 
 public:
@@ -36,7 +38,14 @@ public:
     };
 
 
-    // There shouldn't be any reason for this constrcutor to exist in this context, right?
+    VertexBuffer(VertexBuffer&& vertexBuffer) noexcept : 
+        // Swap between this and the other buffer such that when we then call the destructor on the "old" buffer
+        // we call on a "null" object, which is fine apparently
+        _id(vertexBuffer._id)
+    {
+        vertexBuffer._id = 0;
+    };
+
     VertexBuffer(const VertexBuffer&) = delete;
 
 
@@ -110,5 +119,10 @@ public:
     {
         return _id;
     };
+
+
+public:
+
+    VertexBuffer& operator = (const VertexBuffer&) = delete;
 
 };

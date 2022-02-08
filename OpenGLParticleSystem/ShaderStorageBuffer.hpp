@@ -8,10 +8,17 @@
 #include "VertexBuffer.hpp"
 
 
+/// <summary>
+/// A warpper class for an SSBO buffer
+/// </summary>
 class ShaderStorageBuffer
 {
+
 private:
 
+    /// <summary>
+    /// An identifier used by the API
+    /// </summary>
     std::uint32_t _bufferId = 0;
 
 
@@ -26,6 +33,7 @@ public:
 
         glBufferData(GL_SHADER_STORAGE_BUFFER, bufferSizeInBytes, bufferData, usageType);
 
+        // Typically with SSBO's we bind them to binding point defined in the shader
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindIndex, _bufferId);
     };
 
@@ -39,7 +47,7 @@ public:
         other._bufferId = 0;
     };
 
-
+    // Don't allow copying of OpenGL buffers
     ShaderStorageBuffer(const VertexBuffer&) = delete;
 
 
@@ -51,17 +59,27 @@ public:
 
 public:
 
+    /// <summary>
+    /// Bind this buffer as a GL_SHADER_STORAGE_BUFFER
+    /// </summary>
     void Bind() const
     {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, _bufferId);
     };
 
+    /// <summary>
+    /// Retrieve the data inside the SSBO to bufferData
+    /// </summary>
+    /// <typeparam name="T"> The type of data contained in the buffer </typeparam>
+    /// <param name="bufferData"> A pointer to buffer data which will be filled </param>
+    /// <param name="numberOfElementsInBuffer"> The number of _elements_ to fill </param>
+    /// <param name="elemetOffset"> The _element_ offset at which to start reading from </param>
     template<typename T>
-    void GetBuffer(T* bufferData, const std::size_t numberOfElementsInBuffer) const
+    void GetBuffer(T* bufferData, const std::size_t numberOfElementsInBuffer, std::size_t elemetOffset = 0) const
     {
         Bind();
 
-        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(T) * numberOfElementsInBuffer, bufferData);
+        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, sizeof(T) * elemetOffset, sizeof(T) * numberOfElementsInBuffer, bufferData);
     };
 
 
@@ -82,6 +100,7 @@ public:
 
 public:
 
+    // Don't allow copying of OpenGL buffers
     ShaderStorageBuffer& operator = (const ShaderStorageBuffer&) = delete;
 
 

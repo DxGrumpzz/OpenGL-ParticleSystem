@@ -8,13 +8,23 @@
 #include <iostream>
 
 
+/// <summary>
+/// A class that encapsulates the functionality of a compute shader
+/// </summary>
 class ComputeShaderProgram
 {
 private:
 
+    /// <summary>
+    /// A list of known uniform locations
+    /// </summary>
     mutable std::unordered_map<std::string, std::uint32_t> _uniformLocations;
 
+    /// <summary>
+    /// The ID of this shader 
+    /// </summary>
     std::uint32_t _programID = 0;
+
 
 public:
 
@@ -81,12 +91,21 @@ public:
     };
 
 
-
+    /// <summary>
+    /// Dispatch a compute shader work groups
+    /// </summary>
+    /// <param name="dispatchGroupsX"></param>
+    /// <param name="dispatchGroupsY"></param>
+    /// <param name="dispatchGroupsZ"></param>
     void Dispatch(const std::uint32_t dispatchGroupsX = 1, const std::uint32_t dispatchGroupsY = 1, const std::uint32_t dispatchGroupsZ = 1) const
     {
+        // Ensure that the compute shader is bound
         Bind();
 
+        // Dispatch the work
         glDispatchCompute(dispatchGroupsX, dispatchGroupsY, dispatchGroupsZ);
+
+        // Wait until all data is written to the SSBO buffers
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     };
 
