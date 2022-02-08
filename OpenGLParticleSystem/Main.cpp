@@ -135,19 +135,6 @@ void SetupOpenGL()
 };
 
 
-/// <summary>
-/// A simple parabolic trajectory function, returns the next 'y' position of a particle depending on it's 'x' position
-/// </summary>
-/// <param name="particleX">  </param>
-/// <param name="a"> No idea what this actually does, but it affects the trajectory somewhat </param>
-/// <param name="b"> No idea what this actually does, but it affects the trajectory somewhat </param>
-/// <returns></returns>
-constexpr float ParticleTrajectoryFunction(const float particleX, float a = 1.0f, float b = 1.0f)
-{
-    return particleX * (((-a) * particleX) + b);
-};
-
-
 
 /// <summary>
 /// Read all text inside a file
@@ -500,28 +487,14 @@ struct alignas(16) ComputeShaderParticle
     glm::mat4 Transform = glm::mat4(1.0f);
 
     float Rate = 0.0f;
+
+    float Opacity = 0.0f;
+
+    float OpacityDecreaseRate = 0.0f;
+
 };
 
 
-
-float RandomNumberGenerator(const glm::vec2& uv, float seed)
-{
-    const float fixedSeed = std::fabs(seed) + 1.0f;
-
-    const float x = glm::dot(uv, glm::vec2(12.9898, 78.233) * fixedSeed);
-
-    return glm::fract(glm::sin(x) * 43758.5453f);
-};
-
-float RandomNumberGenerator(const glm::vec2& uv, float seed, float min, float max)
-{
-    const float rng = RandomNumberGenerator(uv, seed);
-
-    // Map [0, 1] to [min, max] 
-    const float rngResult = min + rng * (max - min);
-
-    return rngResult;
-};
 
 
 class ParticleEmmiter
@@ -531,12 +504,6 @@ private:
     std::uint32_t _numberOfParticles;
 
     std::reference_wrapper<const ShaderProgram> _shaderProgram;
-    std::reference_wrapper<std::mt19937> _rng;
-
-    std::reference_wrapper<const std::uniform_real_distribution<float>> _rateDistribution;
-    std::reference_wrapper<const std::uniform_real_distribution<float>> _trajectoryADistribution;
-    std::reference_wrapper<const std::uniform_real_distribution<float>> _trajectoryBDistribution;
-    std::reference_wrapper<const std::uniform_real_distribution<float>> _opacityDecreaseRateDistribution;
 
 
     /// <summary>
@@ -564,13 +531,10 @@ private:
     std::reference_wrapper<const ComputeShaderProgram> _computeShaderProgram;
 
 
-    // std::reference_wrapper<const ShaderStorageBuffer> _inputParticleBuffer;
-    // std::reference_wrapper<const ShaderStorageBuffer> _outputParticletBuffer;
-    // std::reference_wrapper<const ShaderStorageBuffer> _outputParticleScreenTransformBuffer;
-
     ShaderStorageBuffer _inputParticleBuffer;
     ShaderStorageBuffer _outputParticletBuffer;
     ShaderStorageBuffer _outputParticleScreenTransformBuffer;
+    ShaderStorageBuffer _outputParticleOpacitiesBuffer;
 
 
     std::vector<Particle> _particles;
@@ -592,22 +556,12 @@ public:
                     const VertexBuffer& particleVertexPositionVBO,
                     const VertexBuffer& particleTransformVBO,
                     const VertexBuffer& particleOpacityVBO,
-                    std::mt19937& rng,
-                    const std::uniform_real_distribution<float>& rateDistribution,
-                    const std::uniform_real_distribution<float>& trajectoryADistribution,
-                    const std::uniform_real_distribution<float>& trajectoryBDistribution,
-                    const std::uniform_real_distribution<float>& opacityDecreaseRateDistribution,
                     const ComputeShaderProgram& computeShaderProgram) :
         // const ShaderStorageBuffer& inputBuffer,
         // const ShaderStorageBuffer& outputBuffer,
         // const ShaderStorageBuffer& outputParticleScreenTransformBuffer) :
         _numberOfParticles(numberOfParticles),
         _shaderProgram(shaderProgram),
-        _rng(rng),
-        _rateDistribution(rateDistribution),
-        _trajectoryADistribution(trajectoryADistribution),
-        _trajectoryBDistribution(trajectoryBDistribution),
-        _opacityDecreaseRateDistribution(opacityDecreaseRateDistribution),
         _particleEmmiterTransform(particleEmitterTransform),
         _particleTransform(glm::mat4(1.0f)),
         _particleScaleFactor(particleScaleFactor),
@@ -623,9 +577,9 @@ public:
         _inputParticleBuffer(nullptr, sizeof(ComputeShaderParticle)* numberOfParticles, 0, GL_DYNAMIC_COPY),
         _outputParticletBuffer(nullptr, sizeof(ComputeShaderParticle)* numberOfParticles, 1),
         _outputParticleScreenTransformBuffer(nullptr, sizeof(glm::mat4)* numberOfParticles, 2),
+        _outputParticleOpacitiesBuffer(nullptr, sizeof(float)* numberOfParticles, 3),
         _particles(numberOfParticles)
     {
-
         for(std::size_t index = 0;
             Particle & particle : _particles)
         {
@@ -649,6 +603,9 @@ public:
                 .Transform = _particles[i].Transform,
 
                 .Rate = _particles[i].Rate,
+
+                .Opacity = _particles[i].Opacity,
+                .OpacityDecreaseRate = _particles[i].OpacityDecreaseRate,
             };
 
             glBufferSubData(GL_SHADER_STORAGE_BUFFER, sizeof(ComputeShaderParticle) * i, sizeof(ComputeShaderParticle), &temp);
@@ -662,6 +619,8 @@ public:
     void Bind() const
     {
         _computeShaderProgram.get().Bind();
+     
+        // Update compute shader uniforms
         _computeShaderProgram.get().SetUniformValue<glm::mat4>("ParticleEmmiterTransform", _particleEmmiterTransform);
         _computeShaderProgram.get().SetUniformValue<glm::mat4>("ParticleTransform", _particleTransform);
 
@@ -670,9 +629,12 @@ public:
 
         _computeShaderProgram.get().SetUniformValue<float>("ParticleScaleFactor", _particleScaleFactor);
 
+        // Bind SSBOs to their respective binding points
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _inputParticleBuffer.GetBufferID());
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, _outputParticletBuffer.GetBufferID());
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, _outputParticleScreenTransformBuffer.GetBufferID());
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, _outputParticleOpacitiesBuffer.GetBufferID());
+
 
         _shaderProgram.get().Bind();
 
@@ -817,7 +779,15 @@ public:
     {
         _computeShaderProgram.get().SetUniformValue<float>("DeltaTime", deltaTime);
 
-        _computeShaderProgram.get().Dispatch((_numberOfParticles / 256) + 1);
+        _computeShaderProgram.get().Dispatch((_numberOfParticles / 64) + 1);
+
+
+        // Convert the opacity SSBO to a VBO
+        glBindBuffer(GL_ARRAY_BUFFER, _outputParticleOpacitiesBuffer.GetBufferID());
+
+        glVertexAttribPointer(2, 1, GL_FLOAT, false, sizeof(float), 0);
+        glVertexAttribDivisor(2, 1);
+
 
 
         // "Convert" the output SSBO to a VBO and bind to the vertex shader's transform vertex layout
@@ -840,6 +810,7 @@ public:
         glVertexAttribPointer(vertexTransformIndex + 3, 4, GL_FLOAT, false, sizeof(glm::mat4), reinterpret_cast<const void*>(sizeof(glm::vec4) * 3));
         glEnableVertexAttribArray(vertexTransformIndex + 3);
         glVertexAttribDivisor(vertexTransformIndex + 3, 1);
+
 
 
         // Copy the contents of the output SSBO into the intput SSBO
@@ -896,7 +867,7 @@ private:
             return { static_cast<float>(glfwGetTime()), 1.0f / static_cast<float>(glfwGetTime()) };
         };
 
-        constexpr float rngSeed = 1.0f / std::numbers::pi_v<float>;
+        const float rngSeed = static_cast<float>(glfwGetTime());
 
 
         const float newTrajectoryA = RandomNumberGenerator(generateUV(), rngSeed, 0.01f, 0.1f);
@@ -908,10 +879,6 @@ private:
             RandomNumberGenerator(generateUV(), rngSeed, 4.4f, 4.5f);
 
 
-
-        // const float newOpacityDecreaseRate = _opacityDecreaseRateDistribution(_rng.get());
-
-
         // Correct the rate depending on trajectory direction
         const float newRate = std::signbit(newTrajectoryB) == true ?
             // "Left" trajectory 
@@ -919,6 +886,8 @@ private:
             // "Right" trajectory
             RandomNumberGenerator(generateUV(), rngSeed, 10.5f, 30.0f);
 
+
+        const float newOpacityDecreaseRate = RandomNumberGenerator(generateUV(), rngSeed, 0.05f, 0.1f);
 
 
         particle.TrajectoryA = newTrajectoryA;
@@ -928,8 +897,7 @@ private:
         particle.Rate = newRate;
 
         particle.Opacity = 1.0f;
-        // particle.OpacityDecreaseRate = newOpacityDecreaseRate;
-
+        particle.OpacityDecreaseRate = newOpacityDecreaseRate;
 
         // Apply custom particle transform
         particle.Transform = _particleTransform;
@@ -945,8 +913,8 @@ int main()
     constexpr std::uint32_t initialWindowWidth = 800;
     constexpr std::uint32_t initialWindowHeight = 600;
 
-    constexpr bool generateEmitters = false;
-    constexpr std::uint32_t emittersToGenerate = 20;
+    constexpr bool generateEmitters = true;
+    constexpr std::uint32_t emittersToGenerate = 700;
 
 
     constexpr std::uint32_t particlesPerEmitter = 250;
@@ -1103,11 +1071,6 @@ int main()
                                           vertexPositionVBO,
                                           transformVBO,
                                           opacityVBO,
-                                          rng,
-                                          rateDistribution,
-                                          trajectoryADistribution,
-                                          trajectoryBDistribution,
-                                          opacityDecreaseRateDistribution,
                                           computeShader);
             // inputParticleBuffer,
             // outputParticleBuffer,
@@ -1118,10 +1081,17 @@ int main()
         // Destory all particle emitters
         rightMouseButtonClickedCallback = [&]()
         {
+            if(particleEmmiters.empty() == true)
+                return;
+
+            particleEmmiters.erase(particleEmmiters.end() - 1);
+
+            /*
             for(ParticleEmmiter& particleEmmiter : particleEmmiters)
             {
                 particleEmmiter.Destory();
             };
+            */
         };
 
     }
@@ -1143,11 +1113,6 @@ int main()
                                           vertexPositionVBO,
                                           transformVBO,
                                           opacityVBO,
-                                          rng,
-                                          rateDistribution,
-                                          trajectoryADistribution,
-                                          trajectoryBDistribution,
-                                          opacityDecreaseRateDistribution,
                                           computeShader);
             // inputParticleBuffer,
             // outputParticleBuffer,
@@ -1202,7 +1167,7 @@ int main()
 
             particleEmmiter.Bind();
             particleEmmiter.Update2(delta.count());
-            
+
             particleEmmiter.Draw();
 
 

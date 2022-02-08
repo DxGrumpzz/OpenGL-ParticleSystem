@@ -1,7 +1,7 @@
 
 #version 430
 
-layout(local_size_x = 256) in;
+layout(local_size_x = 64) in;
 
 
 struct Particle
@@ -14,6 +14,10 @@ struct Particle
     mat4 Transform;
     
     float Rate;
+
+    float Opacity;
+
+    float OpacityDecreaseRate;
 };
 
 
@@ -30,6 +34,11 @@ layout(std430, binding = 1) writeonly buffer OutTransformsBuffer
 layout(std430, binding = 2) writeonly buffer OutParticleScreenTransformsBuffer
 {
     mat4 OutParticleScreenTransforms[];
+};
+
+layout(std430, binding = 3) writeonly buffer OutParticleOpacityBuffer
+{
+    float OutParticleOpacities[];
 };
 
 
@@ -90,12 +99,10 @@ float RandomNumberGenerator(vec2 uv, float seed, float min, float max)
 };
 
 
-
 void InitializeParticleValues(out Particle particle)
 {
     const vec2 uv = vec2(DeltaTime, 1.0f / DeltaTime);
 
-    // 1 / PI
     const float rngSeed = DeltaTime;
                           
 
@@ -103,8 +110,8 @@ void InitializeParticleValues(out Particle particle)
 
     // A very simple way of creating some trajectory variation
     const float newTrajectoryB = (mod(gl_GlobalInvocationID.x, 2)) == 0 ?
-        -RandomNumberGenerator(uv, rngSeed, 4.4f, 4.5f) :
-        RandomNumberGenerator(uv, rngSeed, 4.4f, 4.5f);
+        -RandomNumberGenerator(uv, rngSeed, 4.0f, 4.5f) :
+        RandomNumberGenerator(uv, rngSeed, 4.0f, 4.5f);
 
 
     // Correct the rate depending on trajectory direction
@@ -115,6 +122,9 @@ void InitializeParticleValues(out Particle particle)
         RandomNumberGenerator(uv, rngSeed, 11.5f, 20.0f);
 
 
+    const float newOpacityDecreaseRate = RandomNumberGenerator(uv, rngSeed, 0.05f, 0.1f);
+
+
 
     particle.TrajectoryA = newTrajectoryA;
     particle.TrajectoryB = newTrajectoryB;
@@ -122,13 +132,14 @@ void InitializeParticleValues(out Particle particle)
     particle.Trajectory = vec2(0.0f);
     particle.Rate = newRate;
 
-    // particle.Opacity = 1.0f;
-    // particle.OpacityDecreaseRate = newOpacityDecreaseRate;
+    particle.Opacity = 1.0f;
+    particle.OpacityDecreaseRate = newOpacityDecreaseRate;
 
 
     // Apply custom particle transform
     particle.Transform = ParticleTransform;
 };
+
 
 
 void main()
@@ -142,7 +153,7 @@ void main()
     particle.Trajectory.y = ParticleTrajectoryFunction(particle.Trajectory.x, particle.TrajectoryA, particle.TrajectoryB);
 
     // Update opacity
-    // particle.Opacity -= particle.OpacityDecreaseRate * DeltaTime;
+    particle.Opacity -= particle.OpacityDecreaseRate * DeltaTime;
 
 
     const vec2 ndcPosition = CartesianToNDC(particle.Trajectory) / ParticleScaleFactor;
@@ -153,8 +164,13 @@ void main()
 
 
     
+    // If we write the particle's opacity value after we reset, it can sometime cause flickering.
+    OutParticleOpacities[gl_GlobalInvocationID.x] = particle.Opacity;
+
+
     // If the particle is outside screen bounds..
-    if (screenPosition.y < -1.0f)
+    if ((screenPosition.y < -1.0f) || 
+         (particle.Opacity <= 0.0f))
     {
         // "Reset" the particle
         InitializeParticleValues(particle);

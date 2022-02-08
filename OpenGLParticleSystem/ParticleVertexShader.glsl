@@ -22,8 +22,7 @@ void main()
 {
     VertexShaderTextureCoordinateOutput = TextureCoordinate;
     
-    // VertexShaderOpacityOutput = Opacity;
-    VertexShaderOpacityOutput = 1.0f;
+    VertexShaderOpacityOutput = Opacity;
     
     VertexShaderTextureUnitOutput = TextureUnit;
 
