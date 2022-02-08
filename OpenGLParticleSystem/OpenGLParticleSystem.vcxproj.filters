@@ -48,5 +48,12 @@
     <ClInclude Include="Texture.hpp">
       <Filter>GLUtilities</Filter>
     </ClInclude>
+    <ClInclude Include="ParticleEmitter.hpp" />
+    <ClInclude Include="ShaderStorageBuffer.hpp">
+      <Filter>GLUtilities</Filter>
+    </ClInclude>
+    <ClInclude Include="ComputeShaderProgram.hpp">
+      <Filter>GLUtilities</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

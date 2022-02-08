@@ -167,9 +167,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BufferLayout.hpp" />
+    <ClInclude Include="ComputeShaderProgram.hpp" />
     <ClInclude Include="GLUtilities.hpp" />
     <ClInclude Include="Math.hpp" />
+    <ClInclude Include="ParticleEmitter.hpp" />
     <ClInclude Include="ShaderProgram.hpp" />
+    <ClInclude Include="ShaderStorageBuffer.hpp" />
     <ClInclude Include="Texture.hpp" />
     <ClInclude Include="VertexArray.hpp" />
     <ClInclude Include="VertexBuffer.hpp" />
